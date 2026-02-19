@@ -17,11 +17,13 @@ import {
 
 export class CortexClient {
   private baseUrl: string;
+  private apiKey?: string;
   private defaultAppId?: string;
   private defaultExternalUserId?: string;
 
   constructor(config: CortexClientConfig = {}) {
     this.baseUrl = config.baseUrl || "http://localhost:9123";
+    this.apiKey = config.apiKey;
     this.defaultAppId = config.appId;
     this.defaultExternalUserId = config.externalUserId;
   }
@@ -47,6 +49,9 @@ export class CortexClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+    if (this.apiKey) {
+      headers["X-API-Key"] = this.apiKey;
+    }
 
     const fetchOptions: RequestInit = {
       method,

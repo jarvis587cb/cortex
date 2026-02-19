@@ -106,17 +106,38 @@ Memory-Typen: `episodic`, `semantic`, `procedural`, `working`.
 
 ## Hooks (Auto-Recall / Auto-Capture)
 
-Der [OpenClaw-Guide](https://openclaw.vanarchain.com/guide-openclaw) beschreibt:
+Umsetzung wie im [OpenClaw-Guide](https://openclaw.vanarchain.com/guide-openclaw):
 
 - **Auto-Recall:** Vor jeder AI-Interaktion relevante Vergangenheit abrufen.
 - **Auto-Capture:** Nach jedem Austausch Konversation speichern.
 
-Diese Hooks werden von OpenClaw (bzw. dem Neutron-Skill) gesteuert. Wenn du einen **OpenClaw-Skill** implementierst, der Cortex statt Neutron anspricht:
+### Aufruf
 
-- **VANAR_AUTO_RECALL** (default: true): Vor jeder Interaktion `./scripts/cortex-memory.sh search "<relevante Query>"` (oder API-Aufruf) ausführen und Kontext dem Agenten bereitstellen.
-- **VANAR_AUTO_CAPTURE** (default: true): Nach jedem Austausch `./scripts/cortex-memory.sh save "<Inhalt>"` (oder API-Aufruf) ausführen.
+**Ein Einstiegspunkt (empfohlen für OpenClaw):**
 
-Dieses Skill-Dokument beschreibt nur die **Schnittstelle** (Script + Env). Die tatsächliche Anbindung der Hooks an OpenClaw (z. B. welche Events „vor Interaktion“ / „nach Austausch“ auslösen) liegt bei der OpenClaw- bzw. Skill-Implementierung.
+```bash
+# Vor Interaktion (Recall)
+./skills/cortex-memory/hooks.sh recall "letzte User-Nachricht oder Thema"
+
+# Nach Austausch (Capture)
+./skills/cortex-memory/hooks.sh capture "Zusammenfassung oder Rohinhalt des Austauschs"
+```
+
+**Oder direkt das Script:**
+
+```bash
+./scripts/cortex-memory.sh recall "query" [limit] [threshold]
+./scripts/cortex-memory.sh capture "content" [metadata_json]
+```
+
+`hooks.sh` ruft intern `cortex-memory.sh` auf. Wenn das Script woanders liegt, setze `CORTEX_MEMORY_SCRIPT` auf den vollen Pfad zu `cortex-memory.sh`.
+
+### Umgebungsvariablen
+
+- **VANAR_AUTO_RECALL** (default: `true`): Wenn `false` oder `0`, macht `recall` nichts (Exit 0).
+- **VANAR_AUTO_CAPTURE** (default: `true`): Wenn `false` oder `0`, macht `capture` nichts (Exit 0).
+
+So kann OpenClaw die Hooks konfigurierbar ein- oder ausschalten. Die Anbindung an OpenClaw-Events („vor Interaktion“ / „nach Austausch“) erfolgt in der OpenClaw- bzw. Skill-Integration (z. B. Skripte oder Hooks, die `hooks.sh recall` bzw. `hooks.sh capture` aufrufen).
 
 ## API-Endpunkte (Referenz)
 

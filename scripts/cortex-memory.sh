@@ -153,11 +153,33 @@ cmd_context_get() {
     fi
 }
 
+# recall - Auto-Recall hook: before each AI interaction, retrieve relevant context (if VANAR_AUTO_RECALL != false)
+cmd_recall() {
+    local q="${1:-}"
+    if [ "${VANAR_AUTO_RECALL:-true}" = "false" ] || [ "${VANAR_AUTO_RECALL:-true}" = "0" ]; then
+        exit 0
+    fi
+    [ -z "$q" ] && q="recent context"
+    cmd_search "$q" "${2:-10}" "${3:-0.3}"
+}
+
+# capture - Auto-Capture hook: after each exchange, store conversation (if VANAR_AUTO_CAPTURE != false)
+cmd_capture() {
+    local content="${1:-}"
+    if [ "${VANAR_AUTO_CAPTURE:-true}" = "false" ] || [ "${VANAR_AUTO_CAPTURE:-true}" = "0" ]; then
+        exit 0
+    fi
+    [ -z "$content" ] && { log_warning "capture: no content"; exit 0; }
+    cmd_save "$content" "${2:-{}}"
+}
+
 # Main
 case "${1:-}" in
     test)           cmd_test ;;
     save)           shift; cmd_save "$@" ;;
     search)         shift; cmd_search "$@" ;;
+    recall)         shift; cmd_recall "$@" ;;
+    capture)        shift; cmd_capture "$@" ;;
     context-create) shift; cmd_context_create "$@" ;;
     context-list)   shift; cmd_context_list "$@" ;;
     context-get)    shift; cmd_context_get "$@" ;;
@@ -171,23 +193,21 @@ Commands:
   test                    Verify Cortex connection (like neutron-memory.sh test)
   save "content" [meta]   Save a memory (metadata optional JSON)
   search "query" [limit] [threshold]   Semantic search (default limit=30, threshold=0.5)
-  context-create <agentId> [memoryType] [payload_json]   Create agent context (memoryType: episodic|semantic|procedural|working)
+  recall [query] [limit] [threshold]   Hook: recall context before interaction (honours VANAR_AUTO_RECALL)
+  capture "content" [meta]   Hook: capture after exchange (honours VANAR_AUTO_CAPTURE)
+  context-create <agentId> [memoryType] [payload_json]   Create agent context
   context-list [agentId]  List agent contexts
   context-get <id>        Get one agent context by ID
 
-Environment (same as OpenClaw Neutron guide where possible):
-  CORTEX_API_URL / NEUTRON_API_URL   API base URL (default: http://localhost:9123)
-  CORTEX_APP_ID / NEUTRON_AGENT_ID  App/agent ID (default: openclaw)
-  CORTEX_USER_ID / YOUR_AGENT_IDENTIFIER   User/identifier (default: default)
-
-Hooks (for OpenClaw integration, when implemented):
-  VANAR_AUTO_RECALL   If true, recall relevant memories before each interaction (default: true)
-  VANAR_AUTO_CAPTURE  If true, capture conversation after each exchange (default: true)
+Environment:
+  CORTEX_API_URL, CORTEX_APP_ID, CORTEX_USER_ID  (or NEUTRON_* / YOUR_AGENT_IDENTIFIER)
+  VANAR_AUTO_RECALL   true|false (default: true) - run recall hook
+  VANAR_AUTO_CAPTURE  true|false (default: true) - run capture hook
 EOF
         ;;
     *)
         [ -n "${1:-}" ] && log_error "Unknown command: $1"
-        echo "Usage: $0 test | save | search | context-create | context-list | context-get | help"
+        echo "Usage: $0 test | save | search | recall | capture | context-create | context-list | context-get | help"
         exit 1
         ;;
 esac

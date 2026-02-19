@@ -57,6 +57,8 @@ export interface BundleResponse {
 
 export interface CortexClientConfig {
   baseUrl?: string;
+  /** Optional; when CORTEX_API_KEY is set on the server, send via X-API-Key header */
+  apiKey?: string;
   appId?: string;
   externalUserId?: string;
 }
