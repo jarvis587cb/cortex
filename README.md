@@ -78,6 +78,7 @@ go run ./...
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
 - `CORTEX_RATE_LIMIT` – Rate Limit (Requests pro Zeitfenster, Standard: 100, 0 = deaktiviert)
 - `CORTEX_RATE_LIMIT_WINDOW` – Rate Limit Zeitfenster (Standard: `1m`)
+- `CORTEX_API_KEY` – optional; wenn gesetzt, müssen Requests `Authorization: Bearer <key>` oder `X-API-Key: <key>` senden (außer `GET /health`)
 
 **Health-Check:**
 

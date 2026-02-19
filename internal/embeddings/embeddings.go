@@ -9,14 +9,14 @@ import (
 // synonymExpandBegriffe: minimale Erweiterung für begriffliche Treffer (z. B. coffee ↔ latte).
 // Jedes Wort wird durch sich selbst + verwandte Begriffe ergänzt, damit Similarity steigt.
 var synonymExpandBegriffe = map[string][]string{
-	"coffee":   {"latte", "cappuccino", "espresso", "kaffee"},
-	"latte":    {"coffee", "cappuccino", "espresso"},
-	"lattes":   {"coffee", "cappuccino", "espresso"},
+	"coffee":     {"latte", "cappuccino", "espresso", "kaffee"},
+	"latte":      {"coffee", "cappuccino", "espresso"},
+	"lattes":     {"coffee", "cappuccino", "espresso"},
 	"cappuccino": {"coffee", "latte", "espresso"},
-	"espresso": {"coffee", "latte", "cappuccino"},
-	"kaffee":   {"coffee", "latte", "espresso"},
-	"tea":      {"tee", "chai"},
-	"tee":      {"tea", "chai"},
+	"espresso":   {"coffee", "latte", "cappuccino"},
+	"kaffee":     {"coffee", "latte", "espresso"},
+	"tea":        {"tee", "chai"},
+	"tee":        {"tea", "chai"},
 }
 
 // EmbeddingService interface für verschiedene Embedding-Provider

@@ -20,9 +20,21 @@ Gleiche Befehle wie im [OpenClaw Integration Guide](https://openclaw.vanarchain.
 ./scripts/cortex-memory.sh context-get <id>
 ```
 
-**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` (oder `NEUTRON_*`); für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` (oder `NEUTRON_*`); optional `CORTEX_API_KEY`; für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
 
 Siehe [skills/cortex-memory/SKILL.md](../skills/cortex-memory/SKILL.md) für Details und **hooks.sh** (ein Einstiegspunkt für OpenClaw).
+
+### `api-key.sh` – API-Key anlegen / löschen
+
+Verwaltet `CORTEX_API_KEY` in einer `.env`-Datei (Server oder Client).
+
+```bash
+./scripts/api-key.sh create [env_file]   # Neuen Key erzeugen und in .env setzen
+./scripts/api-key.sh delete [env_file]    # Key aus .env entfernen
+./scripts/api-key.sh show [env_file]     # Anzeigen, ob Key gesetzt (nur letzte 4 Zeichen)
+```
+
+Ohne `env_file` wird die `.env` im Projektroot oder im aktuellen Verzeichnis verwendet. Der Key hat das Format `ck_` + 64 Hex-Zeichen. Nach `create` Server neu starten bzw. Variable exportieren.
 
 ### `cortex-cli.sh` – CLI-Tool
 

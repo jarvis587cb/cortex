@@ -14,7 +14,10 @@ Vollständige API-Referenz für Cortex Memory API - Neutron-kompatibel.
 
 ## Authentifizierung
 
-Es gibt keine API-Key-Authentifizierung. Alle Endpunkte (inkl. `/health`) sind ohne Auth erreichbar – typisch für lokale Self-hosted-Nutzung.
+**Optional:** Wenn die Umgebungsvariable `CORTEX_API_KEY` am Server gesetzt ist, müssen alle Anfragen (außer `GET /health`) einen gültigen Key mitsenden. `/health` bleibt ohne Auth (für Load-Balancer und Checks).
+
+- **Header:** `Authorization: Bearer <CORTEX_API_KEY>` oder `X-API-Key: <CORTEX_API_KEY>`
+- **Lokal/Dev:** Wenn `CORTEX_API_KEY` leer ist, sind alle Endpunkte ohne Auth erreichbar (Neutron-kompatibel: gleiche Header wie im [OpenClaw Guide](https://openclaw.vanarchain.com/guide-openclaw)).
 
 ## Basis-URL
 

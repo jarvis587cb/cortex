@@ -45,6 +45,8 @@ In deiner OpenClaw `.env` oder Umgebung:
 CORTEX_API_URL=http://localhost:9123
 CORTEX_APP_ID=openclaw
 CORTEX_USER_ID=default
+# Optional: wenn der Server CORTEX_API_KEY setzt, hier denselben Key setzen (Script sendet dann Authorization: Bearer <key>)
+CORTEX_API_KEY=dein_geheimer_key
 ```
 
 Für Abwärtskompatibilität mit dem Neutron-Guide-Namen:
@@ -55,7 +57,7 @@ NEUTRON_AGENT_ID=openclaw
 YOUR_AGENT_IDENTIFIER=default
 ```
 
-Das Script `cortex-memory.sh` liest zuerst `CORTEX_*`, fallback auf `NEUTRON_*` / `YOUR_AGENT_IDENTIFIER`.
+Das Script liest zuerst `CORTEX_*`, Fallback auf `NEUTRON_*` / `YOUR_AGENT_IDENTIFIER`. Bei gesetztem `CORTEX_API_KEY` (oder `NEUTRON_API_KEY`) wird bei jedem Request `Authorization: Bearer <key>` mitgesendet.
 
 ## Test
 

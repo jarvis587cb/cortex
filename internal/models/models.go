@@ -97,16 +97,16 @@ type Webhook struct {
 // AgentContext: session state / conversation history (Neutron-compatible)
 // MemoryType: episodic, semantic, procedural, working
 type AgentContext struct {
-	ID             int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	AppID          string    `gorm:"column:app_id;not null;index" json:"app_id"`
-	ExternalUserID string    `gorm:"column:external_user_id;not null;index" json:"external_user_id"`
-	AgentID        string    `gorm:"column:agent_id;not null;index" json:"agent_id"`
-	MemoryType     string    `gorm:"column:memory_type;not null;index" json:"memory_type"` // episodic, semantic, procedural, working
-	Payload        string    `gorm:"type:text;not null" json:"-"`                           // JSON
+	ID             int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	AppID          string         `gorm:"column:app_id;not null;index" json:"app_id"`
+	ExternalUserID string         `gorm:"column:external_user_id;not null;index" json:"external_user_id"`
+	AgentID        string         `gorm:"column:agent_id;not null;index" json:"agent_id"`
+	MemoryType     string         `gorm:"column:memory_type;not null;index" json:"memory_type"` // episodic, semantic, procedural, working
+	Payload        string         `gorm:"type:text;not null" json:"-"`                          // JSON
 	PayloadMap     map[string]any `gorm:"-" json:"payload,omitempty"`
-	Tags           string    `gorm:"type:text" json:"-"` // optional comma-separated or JSON array
-	CreatedAt      time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
-	UpdatedAt      time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
+	Tags           string         `gorm:"type:text" json:"-"` // optional comma-separated or JSON array
+	CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 type Stats struct {
@@ -165,11 +165,11 @@ type StoreSeedResponse struct {
 
 type QuerySeedRequest struct {
 	TenantRequest
-	Query    string  `json:"query"`
-	Limit    int     `json:"limit,omitempty"`
-	BundleID *int64  `json:"bundleId,omitempty"`
+	Query     string  `json:"query"`
+	Limit     int     `json:"limit,omitempty"`
+	BundleID  *int64  `json:"bundleId,omitempty"`
 	Threshold float64 `json:"threshold,omitempty"` // 0-1, default 0; only return results with similarity >= threshold
-	SeedIDs  []int64 `json:"seedIds,omitempty"`   // optional: limit search to these memory IDs
+	SeedIDs   []int64 `json:"seedIds,omitempty"`   // optional: limit search to these memory IDs
 }
 
 type QuerySeedResult struct {
@@ -237,7 +237,7 @@ type CreateAgentContextRequest struct {
 	AgentID    string         `json:"agentId"`
 	MemoryType string         `json:"memoryType"` // episodic, semantic, procedural, working
 	Payload    map[string]any `json:"payload"`
-	Tags       []string      `json:"tags,omitempty"`
+	Tags       []string       `json:"tags,omitempty"`
 }
 
 type AgentContextResponse struct {

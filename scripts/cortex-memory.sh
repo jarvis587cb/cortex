@@ -12,6 +12,10 @@ source "${SCRIPT_DIR}/lib/common.sh"
 API_URL="${CORTEX_API_URL:-${NEUTRON_API_URL:-http://localhost:9123}}"
 APP_ID="${CORTEX_APP_ID:-${NEUTRON_AGENT_ID:-openclaw}}"
 USER_ID="${CORTEX_USER_ID:-${YOUR_AGENT_IDENTIFIER:-default}}"
+# API Key (optional): wenn gesetzt, wird Authorization: Bearer $API_KEY bei allen Requests gesendet (Neutron-kompatibel)
+API_KEY="${CORTEX_API_KEY:-${NEUTRON_API_KEY:-}}"
+CURL_AUTH=()
+[ -n "$API_KEY" ] && CURL_AUTH=(-H "Authorization: Bearer ${API_KEY}")
 
 # Alias for compatibility
 info() { log_info "$1"; }
@@ -22,7 +26,7 @@ error() { die "$1"; }
 cmd_test() {
     log_info "Testing Cortex connection..."
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" "${API_URL}/health" 2>/dev/null || echo -e "\n000")
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" "${API_URL}/health" 2>/dev/null || echo -e "\n000")
     body=$(echo "$response" | head -n -1)
     http_code=$(echo "$response" | tail -n 1)
     if [ "$http_code" = "200" ]; then
@@ -52,7 +56,7 @@ cmd_save() {
         '{appId: $appId, externalUserId: $externalUserId, content: $content, metadata: $metadata}' 2>/dev/null) || \
     json="{\"appId\":\"$APP_ID\",\"externalUserId\":\"$USER_ID\",\"content\":$(echo "$content" | jq -Rs .),\"metadata\":{}}"
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/seeds" \
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" -X POST "${API_URL}/seeds" \
         -H "Content-Type: application/json" \
         -d "$json")
     body=$(echo "$response" | head -n -1)
@@ -104,7 +108,7 @@ cmd_search() {
         json="{\"appId\":\"$APP_ID\",\"externalUserId\":\"$USER_ID\",\"query\":$(echo "$query" | jq -Rs .),\"limit\":$limit,\"threshold\":$threshold}"
     fi
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/seeds/query" \
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" -X POST "${API_URL}/seeds/query" \
         -H "Content-Type: application/json" \
         -d "$json")
     body=$(echo "$response" | head -n -1)
@@ -132,7 +136,7 @@ cmd_context_create() {
         --argjson payload "$payload" \
         '{appId: $appId, externalUserId: $externalUserId, agentId: $agentId, memoryType: $memoryType, payload: $payload}')
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/agent-contexts" \
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" -X POST "${API_URL}/agent-contexts" \
         -H "Content-Type: application/json" \
         -d "$json")
     body=$(echo "$response" | head -n -1)
@@ -151,7 +155,7 @@ cmd_context_list() {
     local url="${API_URL}/agent-contexts?appId=${APP_ID}&externalUserId=${USER_ID}"
     [ -n "$agent_id" ] && url="${url}&agentId=${agent_id}"
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" "$url")
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" "$url")
     body=$(echo "$response" | head -n -1)
     http_code=$(echo "$response" | tail -n 1)
     if [ "$http_code" = "200" ]; then
@@ -166,7 +170,7 @@ cmd_context_get() {
     local id="${1:-}"
     [ -z "$id" ] && die "Usage: $0 context-get <id>"
     local response body http_code
-    response=$(curl -s -w "\n%{http_code}" "${API_URL}/agent-contexts/${id}")
+    response=$(curl -s -w "\n%{http_code}" "${CURL_AUTH[@]}" "${API_URL}/agent-contexts/${id}")
     body=$(echo "$response" | head -n -1)
     http_code=$(echo "$response" | tail -n 1)
     if [ "$http_code" = "200" ]; then
@@ -224,6 +228,7 @@ Commands:
 
 Environment:
   CORTEX_API_URL, CORTEX_APP_ID, CORTEX_USER_ID  (or NEUTRON_* / YOUR_AGENT_IDENTIFIER)
+  CORTEX_API_KEY      optional - when set, sends Authorization: Bearer <key> (or NEUTRON_API_KEY)
   VANAR_AUTO_RECALL   true|false (default: true) - run recall hook
   VANAR_AUTO_CAPTURE  true|false (default: true) - run capture hook
 EOF
