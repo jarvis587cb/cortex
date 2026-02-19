@@ -20,10 +20,10 @@ Cortex ist eine **vollständig kompatible, lokale Alternative** zur Neutron Memo
 | **Multi-Tenant** | ✅ `appId` + `externalUserId` | ✅ `appId` + `externalUserId` | ✅ Identisch |
 | **Bundles** | ✅ Unterstützt | ✅ Unterstützt | ✅ Identisch |
 | **Semantische Suche** | ✅ Cosine-Similarity | ✅ Cosine-Similarity | ✅ Implementiert |
-| **Embeddings** | ✅ Jina v4 (1024-dim) | ✅ Jina v4 (1024-dim) optional | ✅ Kompatibel |
+| **Embeddings** | ✅ Jina v4 (1024-dim) | ✅ Lokaler Service (384-dim) | ✅ Lokal statt Cloud |
 | **Lokale Embeddings** | ❌ Nicht verfügbar | ✅ 384-dim Hash-basiert | ✅ Zusatz-Feature |
 | **TypeScript SDK** | ✅ SDK vorhanden | ✅ SDK vorhanden | ✅ Implementiert |
-| **Multimodal** | ✅ Text + Bilder + Docs | ✅ Text + Bilder + Docs (mit Jina) | ✅ Kompatibel |
+| **Multimodal** | ✅ Text + Bilder + Docs | ✅ Text-Support (lokal) | ⚠️ Unterschied: Nur Text lokal |
 | **Metadata** | ✅ JSON Metadata | ✅ JSON Metadata | ✅ Identisch |
 | **Similarity Scores** | ✅ 0.0-1.0 | ✅ 0.0-1.0 | ✅ Identisch |
 
@@ -36,10 +36,10 @@ Cortex ist eine **vollständig kompatible, lokale Alternative** zur Neutron Memo
 | **Skalierung** | ✅ Hochskalierbar (Cloud) | ⚠️ Single-Instance (SQLite) | **Vorteil Neutron:** Enterprise-Skalierung |
 | **Kosten** | 💰 Pay-per-use | ✅ Kostenlos (Self-hosted) | **Vorteil Cortex:** Keine laufenden Kosten |
 | **Setup** | ✅ Sofort verfügbar | ⚠️ Installation erforderlich | **Vorteil Neutron:** Kein Setup |
-| **Embedding-Service** | ✅ Immer Jina v4 | ✅ Optional Jina v4 oder lokal | **Vorteil Cortex:** Flexibilität |
+| **Embedding-Service** | ✅ Immer Jina v4 | ✅ Vollständig lokal | **Vorteil Cortex:** Keine Cloud-Abhängigkeit |
 | **Performance** | Sub-200ms (Cloud) | Abhängig von Hardware | **Vorteil Neutron:** Garantierte Performance |
 | **Authentifizierung** | ✅ Bearer Token (`nk_...`) | ✅ API-Key (`X-API-Key`) | **Unterschied:** Header-Format |
-| **Sprachen** | ✅ 100+ (Jina v4) | ✅ 100+ (mit Jina v4) | ✅ Identisch wenn Jina verwendet |
+| **Sprachen** | ✅ 100+ (Jina v4) | ✅ Alle Sprachen (lokal) | ✅ Lokaler Service unterstützt alle Sprachen |
 
 ### ✅ Alle optionalen Features implementiert
 
@@ -121,7 +121,7 @@ fetch(`http://localhost:9123/seeds?appId=${AGENT_ID}&externalUserId=${AGENT_IDEN
 **Cortex:**
 - SQLite mit JSON-encoded Vektoren
 - Performance abhängig von Datenmenge
-- Optional: Jina v4 (1024-dim) oder lokaler Service (384-dim)
+- Lokaler Embedding-Service (384-dim, vollständig offline)
 
 **Vergleich:** ✅ **Funktional identisch**, Performance-Unterschied bei großen Datenmengen
 
@@ -133,9 +133,9 @@ fetch(`http://localhost:9123/seeds?appId=${AGENT_ID}&externalUserId=${AGENT_IDEN
 - Multimodal (Text, Bilder, Dokumente)
 
 **Cortex:**
-- Optional Jina v4 (wenn `JINA_API_KEY` gesetzt)
-- Fallback: Lokaler Hash-basierter Service (384-dim)
-- Multimodal mit Jina v4
+- Lokaler Hash-basierter Service (384-dim)
+- Vollständig offline, keine externe API nötig
+- Text-Support (Multimodal optional über externe Services)
 
 **Vergleich:** ✅ **Kompatibel**, Cortex bietet zusätzliche Flexibilität
 
@@ -268,7 +268,7 @@ const client = new CortexClient({
 - ✅ **99% API-Kompatibilität** - Gleiche Endpunkte, gleiche Formate
 - ✅ **Alle Kern-Features** - Bundles, Embeddings, Semantische Suche
 - ✅ **TypeScript SDK** - Gleiche API-Struktur
-- ✅ **Flexibilität** - Optional Jina v4 oder lokaler Service
+- ✅ **Vollständig lokal** - Keine Cloud-Abhängigkeit, alles offline
 - ✅ **Privacy** - Lokale Datenhaltung
 - ✅ **Kostenlos** - Keine laufenden Kosten
 

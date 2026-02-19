@@ -78,9 +78,9 @@ Content-Type: application/json
 |--------|---------|--------|
 | **Deployment** | ☁️ Cloud (SaaS) | 🏠 Lokal (Self-hosted) |
 | **Datenbank** | PostgreSQL + pgvector | SQLite (pure-Go) |
-| **Embeddings** | ✅ Jina v4 (1024-dim) | ✅ Jina v4 (1024-dim) oder Lokal (384-dim) |
+| **Embeddings** | ✅ Jina v4 (1024-dim) | ✅ Lokaler Service (384-dim) |
 | **Semantische Suche** | ✅ Cosine-Similarity | ✅ Cosine-Similarity |
-| **Multimodal** | ✅ Text + Bilder + Docs | ✅ Text + Bilder + Docs (mit Jina v4) |
+| **Multimodal** | ✅ Text + Bilder + Docs | ✅ Text-Support (lokal) |
 | **Performance** | Sub-200ms | Abhängig von Datenmenge |
 | **Skalierung** | ✅ Hochskalierbar | ⚠️ Single-Instance (SQLite) |
 | **Kosten** | 💰 Pay-per-use | ✅ Kostenlos (Self-hosted) |
@@ -88,7 +88,7 @@ Content-Type: application/json
 | **Bundles** | ✅ Unterstützt | ✅ Unterstützt |
 | **TypeScript SDK** | ✅ SDK vorhanden | ✅ SDK vorhanden |
 | **Query-Parameter** | ✅ Tenant-IDs in Query-String | ✅ Unterstützt (mit Body-Fallback) |
-| **Sprachen** | ✅ 100+ (Jina v4) | ✅ 100+ (mit Jina v4) oder Basis (lokal) |
+| **Sprachen** | ✅ 100+ (Jina v4) | ✅ Alle Sprachen (lokal) |
 
 ## API-Kompatibilität
 
@@ -244,9 +244,9 @@ verwendet werden.
 ### Vollständig implementiert ✅
 
 1. **Embeddings** ✅
-   - Jina v4 Integration (optional)
-   - Lokaler Embedding-Service (Fallback)
+   - Vollständig lokaler Embedding-Service
    - Semantische Suche mit Cosine-Similarity
+   - Keine externe API-Abhängigkeit
    - Automatische Service-Auswahl
 
 2. **Bundles-Feature** ✅
@@ -275,10 +275,10 @@ verwendet werden.
 - ✅ Query-Parameter-Support
 - ✅ Bundles-Unterstützung
 - ✅ TypeScript SDK verfügbar
-- ✅ Jina v4 Integration (optional)
+- ✅ Vollständig lokaler Embedding-Service
 
 **Cortex kann als vollwertige Alternative zu Neutron verwendet werden:**
 - Lokale Kontrolle und Privacy
 - Kostenlos (Self-hosted)
 - Neutron-kompatible API
-- Optional: Upgrade auf Jina v4 für bessere Embeddings
+- ✅ Vollständig lokaler Embedding-Service - Keine externe API nötig

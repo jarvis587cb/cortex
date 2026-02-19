@@ -260,14 +260,8 @@ func (j *JinaEmbeddingService) GenerateEmbeddingsBatch(contents []string, conten
 }
 
 // GetEmbeddingService gibt den verfügbaren Embedding-Service zurück
-// Prüft JINA_API_KEY: Wenn vorhanden, verwendet Jina v4, sonst lokalen Service
+// Verwendet standardmäßig den lokalen Embedding-Service (vollständig offline)
 func GetEmbeddingService() EmbeddingService {
-	jina := NewJinaEmbeddingService()
-	if jina.IsAvailable() {
-		slog.Info("Using Jina v4 Embedding Service")
-		return jina
-	}
-
 	slog.Info("Using Local Embedding Service")
 	return NewLocalEmbeddingService()
 }

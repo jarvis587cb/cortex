@@ -6,9 +6,7 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 - ✅ **Persistente Speicherung**: Erinnerungen, Fakten und Relationen in SQLite
 - ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
-- ✅ **Multimodal-Support**: Unterstützung für Text, Bilder und Dokumente
-- ✅ **Jina API Integration**: Nutzung von Jina v4 Embeddings (wie Neutron)
-- ✅ **Fallback-Lösung**: Lokaler Embedding-Service wenn keine API verfügbar
+- ✅ **Lokaler Embedding-Service**: Vollständig lokale Embedding-Generierung ohne externe APIs
 - ✅ **Multi-Tenant-Support**: Isolation durch `appId` + `externalUserId`
 - ✅ **Neutron-kompatibel**: Gleiche API-Formate wie neutron-local
 - ✅ **Leichtgewichtig**: Pure-Go (kein cgo), keine externen Dependencies außer SQLite
@@ -19,8 +17,7 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 - ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
 - ✅ **Multimodal-Support**: Unterstützung für Text, Bilder und Dokumente
-- ✅ **Jina API Integration**: Nutzung von Jina v4 Embeddings (wie Neutron)
-- ✅ **Fallback-Lösung**: Lokaler Embedding-Service wenn keine API verfügbar
+- ✅ **Lokaler Embedding-Service**: Vollständig lokale Embedding-Generierung ohne externe APIs
 - ✅ **Neutron-kompatible API**: Seeds-API für einfache Integration
 - ✅ **Multi-Tenant**: Isolation von Daten nach `appId` und `externalUserId`
 - ✅ **REST API**: Vollständige HTTP-API für alle Operationen
@@ -82,8 +79,6 @@ go run ./...
 - `CORTEX_PORT` – Port (Standard: `9123`)
 - `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
-- `JINA_API_KEY` – API-Key für Jina v4 Embeddings (optional, verwendet lokalen Service wenn nicht gesetzt)
-- `JINA_API_URL` – URL für Jina API (Standard: `https://api.jina.ai/v1/embeddings`)
 - `CORTEX_RATE_LIMIT` – Rate Limit (Requests pro Zeitfenster, Standard: 100, 0 = deaktiviert)
 - `CORTEX_RATE_LIMIT_WINDOW` – Rate Limit Zeitfenster (Standard: `1m`)
 
@@ -179,24 +174,17 @@ Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installatio
 
 ## Embeddings & Semantische Suche
 
-Cortex unterstützt semantische Suche mit Embeddings - **wahlweise lokal oder mit Jina v4**.
+Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**.
 
 ### Embedding-Service-Auswahl
 
-Cortex wählt automatisch den besten verfügbaren Service:
+Cortex verwendet standardmäßig den lokalen Embedding-Service:
 
-**Mit Jina v4 (empfohlen für Produktion):**
-```bash
-export JINA_API_KEY="dein-jina-api-key"
-export JINA_API_URL="https://api.jina.ai/v1/embeddings"  # Optional
-```
-- ✅ **1024-dimensionale Embeddings** - Hochwertige semantische Repräsentation
-- ✅ **Multimodal-Support** - Text, Bilder und Dokumente
-- ✅ **100+ Sprachen** - Native Multilingual-Unterstützung
-
-**Ohne API (lokaler Service):**
-- ✅ **384-dimensionale Embeddings** - Kompakt und performant
-- ✅ **Vollständig offline** - Keine externe API-Abhängigkeit
+**Lokaler Embedding-Service:**
+- ✅ **384-dimensionale Embeddings** - Lokale Hash-basierte Generierung
+- ✅ **Vollständig offline** - Keine externe API nötig
+- ✅ **Keine API-Keys** - Funktioniert ohne Konfiguration
+- ✅ **Text-Support** - Optimiert für Text-Inhalte
 - ✅ **Schnell** - Keine Netzwerk-Latenz
 - ✅ **Hash-basierter Algorithmus** - Basierend auf Content-Analyse und Wort-Frequenzen
 
