@@ -38,7 +38,7 @@ chmod +x scripts/cortex-memory.sh
 
 ## Konfiguration
 
-In deiner OpenClaw `.env` oder Umgebung:
+In deiner OpenClaw `.env` oder Umgebung (Cortex-Projekt: `.env` liegt nicht im Repo – bei Bedarf `cp .env.example .env` und anpassen):
 
 ```bash
 # Cortex-API (statt Neutron)

@@ -46,6 +46,7 @@ Cortex besteht aus folgenden Komponenten:
 
 - `cortex-cli.sh` – CLI-Tool für alle API-Operationen
 - `cortex-memory.sh` – Neutron-kompatibles Script (save, search, context-*), siehe [skills/cortex-memory/SKILL.md](skills/cortex-memory/SKILL.md)
+- `api-key.sh` – API-Key anlegen/löschen (CORTEX_API_KEY in .env)
 - `benchmark.sh` – Performance-Benchmarks
 - `test-e2e.sh` – End-to-End-Tests
 - `lib/common.sh` – Gemeinsame Funktionen für Scripts
@@ -61,6 +62,17 @@ Siehe [scripts/README.md](scripts/README.md) für Details.
 - Unterstützt Multi-Tenant-Konfiguration
 
 ## Installation & Start
+
+### Konfiguration (optional)
+
+Die Datei `.env` wird nicht ins Repository committed (steht in `.gitignore`). Für lokale Anpassungen:
+
+```bash
+cp .env.example .env
+# .env bearbeiten (z. B. CORTEX_PORT, CORTEX_API_KEY)
+```
+
+API-Keys anlegen/entfernen: `./scripts/api-key.sh create` bzw. `delete` (siehe [scripts/README.md](scripts/README.md)).
 
 ### Go-Server starten
 
@@ -803,17 +815,15 @@ go test -cover ./...
 
 ```bash
 # Docker Image bauen
-docker build -t cortex .
+make docker-build
+# bzw. docker build -t cortex .
 
-# Mit docker-compose starten
-docker-compose up -d
-
-# Oder direkt mit Docker
-docker run -d \
-  -p 9123:9123 \
-  -v cortex-data:/data \
-  cortex
+# Mit docker-compose starten (Port 9123)
+make docker-up
+# bzw. docker compose up -d
 ```
+
+**Hinweis:** Wenn Port 9123 bereits belegt ist (z. B. durch einen lokal laufenden Cortex), zuerst den Prozess beenden (`pkill -f cortex`) oder in `docker-compose.yml` einen anderen Host-Port verwenden (z. B. `"9124:9123"`).
 
 ### Scripts verwenden
 
@@ -834,10 +844,13 @@ brew install curl jq
 
 ### Port bereits belegt
 
+Wenn **lokal** ein anderer Port genutzt werden soll:
+
 ```bash
-# Anderen Port verwenden
 CORTEX_PORT=9124 go run ./...
 ```
+
+Wenn **Docker** den Port 9123 nicht binden kann (`address already in use`): Lokalen Cortex beenden (`pkill -f cortex`) oder in `docker-compose.yml` z. B. `ports: - "9124:9123"` eintragen und Clients auf `http://localhost:9124` zeigen.
 
 ### Datenbank-Fehler
 
