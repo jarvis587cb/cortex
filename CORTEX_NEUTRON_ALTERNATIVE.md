@@ -547,8 +547,8 @@ Der offizielle Guide beschreibt die Integration von Neutron in OpenClaw: ClawHub
 
 | Aspekt | Guide (Neutron) | Cortex |
 |--------|------------------|--------|
-| **Auto-Recall** | Vor jeder AI-Interaktion; `VANAR_AUTO_RECALL` | Kein OpenClaw-Hook; Abruf über API/SDK oder `cortex-cli.sh query`; Skill „cortex-memory“ kann Hooks bereitstellen |
-| **Auto-Capture** | Nach jedem Austausch; `VANAR_AUTO_CAPTURE` | Kein OpenClaw-Hook; Speichern über API/SDK oder `cortex-cli.sh store`; Skill „cortex-memory“ kann Hooks bereitstellen |
+| **Auto-Recall** | Vor jeder AI-Interaktion; `VANAR_AUTO_RECALL` | Implementiert: `cortex-memory.sh recall` + `skills/cortex-memory/hooks.sh recall`; Env `VANAR_AUTO_RECALL` (default: true) |
+| **Auto-Capture** | Nach jedem Austausch; `VANAR_AUTO_CAPTURE` | Implementiert: `cortex-memory.sh capture` + `hooks.sh capture`; Env `VANAR_AUTO_CAPTURE` (default: true) |
 
 ### Seeds (Memory Storage & Search)
 

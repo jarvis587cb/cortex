@@ -19,6 +19,8 @@ Cortex-Server muss laufen (siehe [skills/cortex/SKILL.md](../cortex/SKILL.md)).
 ./scripts/cortex-memory.sh test
 ./scripts/cortex-memory.sh save "User prefers oat milk lattes" "{}"
 ./scripts/cortex-memory.sh search "coffee preferences" 10 0.5
+# Optional: Suche auf bestimmte Seeds beschränken (wie im Guide: seedIds)
+./scripts/cortex-memory.sh search "coffee" 10 0.5 "1,2,3"
 ```
 
 ### Option B: In einem OpenClaw-Projekt

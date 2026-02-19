@@ -65,21 +65,39 @@ cmd_save() {
     fi
 }
 
-# search - Semantic search (like neutron-memory.sh search "query" [limit] [threshold])
+# search - Semantic search (like neutron-memory.sh search "query" [limit] [threshold] [seedIds])
+# seedIds: optional, comma-separated list of seed IDs to limit search (e.g. "1,2,3")
 cmd_search() {
     local query="${1:-}"
     local limit="${2:-30}"
     local threshold="${3:-0.5}"
-    [ -z "$query" ] && die "Usage: $0 search \"<query>\" [limit] [threshold]"
+    local seed_ids="${4:-}"
+    [ -z "$query" ] && die "Usage: $0 search \"<query>\" [limit] [threshold] [seedIds_comma_separated]"
+    local seed_ids_json="null"
+    if [ -n "$seed_ids" ] && has_jq 2>/dev/null; then
+        seed_ids_json=$(echo "$seed_ids" | jq -R 'split(",") | map(tonumber | select(. != null))')
+        [ "$seed_ids_json" = "[]" ] && seed_ids_json="null"
+    fi
     local json
-    json=$(jq -n \
-        --arg appId "$APP_ID" \
-        --arg externalUserId "$USER_ID" \
-        --arg query "$query" \
-        --argjson limit "$limit" \
-        --argjson threshold "$threshold" \
-        '{appId: $appId, externalUserId: $externalUserId, query: $query, limit: $limit, threshold: $threshold}' 2>/dev/null) || \
-    json="{\"appId\":\"$APP_ID\",\"externalUserId\":\"$USER_ID\",\"query\":$(echo "$query" | jq -Rs .),\"limit\":$limit,\"threshold\":$threshold}"
+    if [ "$seed_ids_json" != "null" ] && [ -n "$seed_ids_json" ]; then
+        json=$(jq -n \
+            --arg appId "$APP_ID" \
+            --arg externalUserId "$USER_ID" \
+            --arg query "$query" \
+            --argjson limit "$limit" \
+            --argjson threshold "$threshold" \
+            --argjson seedIds "$seed_ids_json" \
+            '{appId: $appId, externalUserId: $externalUserId, query: $query, limit: $limit, threshold: $threshold, seedIds: $seedIds}' 2>/dev/null)
+    else
+        json=$(jq -n \
+            --arg appId "$APP_ID" \
+            --arg externalUserId "$USER_ID" \
+            --arg query "$query" \
+            --argjson limit "$limit" \
+            --argjson threshold "$threshold" \
+            '{appId: $appId, externalUserId: $externalUserId, query: $query, limit: $limit, threshold: $threshold}' 2>/dev/null) || \
+        json="{\"appId\":\"$APP_ID\",\"externalUserId\":\"$USER_ID\",\"query\":$(echo "$query" | jq -Rs .),\"limit\":$limit,\"threshold\":$threshold}"
+    fi
     local response body http_code
     response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/seeds/query" \
         -H "Content-Type: application/json" \
@@ -192,7 +210,7 @@ Usage: $0 <command> [args...]
 Commands:
   test                    Verify Cortex connection (like neutron-memory.sh test)
   save "content" [meta]   Save a memory (metadata optional JSON)
-  search "query" [limit] [threshold]   Semantic search (default limit=30, threshold=0.5)
+  search "query" [limit] [threshold] [seedIds]   Semantic search (seedIds optional, comma-separated)
   recall [query] [limit] [threshold]   Hook: recall context before interaction (honours VANAR_AUTO_RECALL)
   capture "content" [meta]   Hook: capture after exchange (honours VANAR_AUTO_CAPTURE)
   context-create <agentId> [memoryType] [payload_json]   Create agent context

@@ -12,7 +12,7 @@ Gleiche Befehle wie im [OpenClaw Integration Guide](https://openclaw.vanarchain.
 ```bash
 ./scripts/cortex-memory.sh test
 ./scripts/cortex-memory.sh save "content" "[metadata_json]"
-./scripts/cortex-memory.sh search "query" [limit] [threshold]
+./scripts/cortex-memory.sh search "query" [limit] [threshold] [seedIds]
 ./scripts/cortex-memory.sh recall "[query]" [limit] [threshold]   # Hook: vor Interaktion (VANAR_AUTO_RECALL)
 ./scripts/cortex-memory.sh capture "content" [metadata_json]      # Hook: nach Austausch (VANAR_AUTO_CAPTURE)
 ./scripts/cortex-memory.sh context-create "agentId" [memoryType] [payload_json]
