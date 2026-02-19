@@ -27,6 +27,11 @@ go.work.sum
 .DS_Store
 Thumbs.db
 
+# Environment and secrets (do not commit)
+.env
+.env.local
+.env.*.local
+
 # Database files
 *.db
 *.db-shm
