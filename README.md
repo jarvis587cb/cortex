@@ -45,6 +45,7 @@ Cortex besteht aus folgenden Komponenten:
 **Bash-Scripts** für CLI, Tests und Benchmarks:
 
 - `cortex-cli.sh` – CLI-Tool für alle API-Operationen
+- `cortex-memory.sh` – Neutron-kompatibles Script (save, search, context-*), siehe [skills/cortex-memory/SKILL.md](skills/cortex-memory/SKILL.md)
 - `benchmark.sh` – Performance-Benchmarks
 - `test-e2e.sh` – End-to-End-Tests
 - `lib/common.sh` – Gemeinsame Funktionen für Scripts
@@ -64,7 +65,8 @@ Siehe [scripts/README.md](scripts/README.md) für Details.
 ### Go-Server starten
 
 ```bash
-cd projects/cortex
+# Ins Cortex-Projektverzeichnis wechseln
+cd /path/to/cortex   # bzw. z. B. cd ~/.openclaw/workspace/projects/cortex
 go mod tidy
 go run ./...
 ```
@@ -627,17 +629,19 @@ Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 
 ## Datenmodell
 
-### Memories
+### Memories (Seeds)
 
 - `id` – Eindeutige ID
 - `content` – Textinhalt
-- `type` – Typ (z.B. "semantic", "episodic")
+- `type` – Typ (z. B. "semantic", "episodic")
 - `entity` – Optionale Entity-Zuordnung
 - `tags` – Kommagetrennte Tags
-- `importance` – Wichtigkeit (1-10)
+- `importance` – Wichtigkeit (1–10)
 - `app_id` – Multi-Tenant: App-ID
 - `external_user_id` – Multi-Tenant: User-ID
+- `bundle_id` – Optionale Bundle-Zuordnung
 - `metadata` – JSON-Metadaten (als Text)
+- `content_type` – Content-Type (z. B. "text/plain")
 - `created_at` – Zeitstempel
 
 ### Entities
@@ -680,11 +684,11 @@ Cortex ist eine **vollständig lokale, kostenlose Alternative** zur Neutron Memo
 
 ### Dokumentation
 
-- **[CORTEX_NEUTRON_ALTERNATIVE.md](CORTEX_NEUTRON_ALTERNATIVE.md)** – Feature-für-Feature Vergleich mit Neutron-Artikel-Anforderungen
-- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** – Cross-Platform Integration Guide (Discord/Slack/WhatsApp/Web)
-- **[PERFORMANCE.md](PERFORMANCE.md)** – Performance-Benchmarks und Optimierungen
-- **[CRYPTO_EVALUATION.md](CRYPTO_EVALUATION.md)** – Evaluierung kryptographischer Verifizierung
-- **[VERGLEICH_NEUTRON.md](VERGLEICH_NEUTRON.md)** – Detaillierter Feature-Vergleich mit Neutron
+- **[docs/CORTEX_NEUTRON_ALTERNATIVE.md](docs/CORTEX_NEUTRON_ALTERNATIVE.md)** – Feature-für-Feature Vergleich mit Neutron-Artikel-Anforderungen
+- **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** – Cross-Platform Integration Guide (Discord/Slack/WhatsApp/Web)
+- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** – Performance-Benchmarks und Optimierungen
+- **[docs/CRYPTO_EVALUATION.md](docs/CRYPTO_EVALUATION.md)** – Evaluierung kryptographischer Verifizierung
+- **[docs/VERGLEICH_NEUTRON.md](docs/VERGLEICH_NEUTRON.md)** – Detaillierter Feature-Vergleich mit Neutron
 
 ### Migration von Neutron
 
@@ -698,8 +702,8 @@ const client = new NeutronClient({
     baseUrl: 'https://api-neutron.vanarchain.com'
 });
 
-// Nachher (Cortex) - nur Base-URL ändern, kein API-Key nötig
-import { CortexClient } from '@openclaw/cortex-sdk';
+// Nachher (Cortex) – nur Base-URL ändern, kein API-Key nötig
+import { CortexClient } from '@cortex/memory-sdk';
 const client = new CortexClient({
     baseUrl: 'http://localhost:9123' // Lokaler Server
 });
@@ -709,7 +713,7 @@ await client.storeMemory({...});
 await client.queryMemory({...});
 ```
 
-**Siehe [CORTEX_NEUTRON_ALTERNATIVE.md](CORTEX_NEUTRON_ALTERNATIVE.md) für vollständige Migrations-Anleitung.**
+**Siehe [docs/CORTEX_NEUTRON_ALTERNATIVE.md](docs/CORTEX_NEUTRON_ALTERNATIVE.md) für vollständige Migrations-Anleitung.**
 
 ## Neutron-Kompatibilität
 
