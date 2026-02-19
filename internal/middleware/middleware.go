@@ -32,16 +32,20 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			slog.Warn("missing authorization header", "path", r.URL.Path, "ip", r.RemoteAddr)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
+		// Support both X-API-Key header and Authorization header
+		providedKey := r.Header.Get("X-API-Key")
+		if providedKey == "" {
+			// Fallback to Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				slog.Warn("missing authorization header", "path", r.URL.Path, "ip", r.RemoteAddr)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			// Support both "Bearer <key>" and direct key
+			providedKey = strings.TrimPrefix(authHeader, "Bearer ")
+			providedKey = strings.TrimSpace(providedKey)
 		}
-
-		// Support both "Bearer <key>" and direct key
-		providedKey := strings.TrimPrefix(authHeader, "Bearer ")
-		providedKey = strings.TrimSpace(providedKey)
 
 		if providedKey != apiKey {
 			slog.Warn("invalid API key", "path", r.URL.Path, "ip", r.RemoteAddr)

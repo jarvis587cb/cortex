@@ -54,22 +54,24 @@ func main() {
 	mux.HandleFunc("/seeds/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete))))
 
 	// Bundles API (with rate limiting)
-	mux.HandleFunc("/bundles", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			handlers.HandleCreateBundle(w, r)
-		case http.MethodGet:
-			handlers.HandleListBundles(w, r)
-		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		}
-	})))
+	// Register /bundles/ first to avoid routing conflicts
 	mux.HandleFunc("/bundles/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			handlers.HandleGetBundle(w, r)
 		case http.MethodDelete:
 			handlers.HandleDeleteBundle(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	// Register /bundles after /bundles/ to ensure exact match
+	mux.HandleFunc("/bundles", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handlers.HandleCreateBundle(w, r)
+		case http.MethodGet:
+			handlers.HandleListBundles(w, r)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
