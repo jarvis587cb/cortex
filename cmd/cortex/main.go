@@ -117,6 +117,14 @@ func main() {
 	})))
 	mux.HandleFunc("/webhooks/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteWebhook, http.MethodDelete))))
 
+	// Export/Import API (with rate limiting)
+	mux.HandleFunc("/export", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleExport, http.MethodGet))))
+	mux.HandleFunc("/import", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleImport, http.MethodPost))))
+
+	// Backup/Restore API (with rate limiting)
+	mux.HandleFunc("/backup", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleBackup, http.MethodPost))))
+	mux.HandleFunc("/restore", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleRestore, http.MethodPost))))
+
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {
 		port = helpers.DefaultPort

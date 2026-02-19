@@ -1,8 +1,11 @@
 package api
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -745,6 +748,149 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 		"message": "Webhook deleted successfully",
 		"id":      id,
 	})
+}
+
+// Export/Import API Handlers
+
+func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
+		return
+	}
+
+	exportData, err := h.store.ExportAll(appID, externalUserID)
+	if err != nil {
+		slog.Error("export error", "error", err, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"cortex-export-%s-%s-%s.json\"", appID, externalUserID, time.Now().Format("20060102-150405")))
+	helpers.WriteJSON(w, http.StatusOK, exportData)
+}
+
+func (h *Handlers) HandleImport(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
+		return
+	}
+
+	var exportData store.ExportData
+	if err := helpers.ParseJSONBody(r, &exportData); err != nil {
+		http.Error(w, "invalid json body", http.StatusBadRequest)
+		return
+	}
+
+	overwrite := helpers.GetQueryParam(r, "overwrite") == "true"
+
+	if err := h.store.ImportData(&exportData, overwrite); err != nil {
+		slog.Error("import error", "error", err, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message":   "Import completed successfully",
+		"memories":  len(exportData.Memories),
+		"bundles":   len(exportData.Bundles),
+		"webhooks":  len(exportData.Webhooks),
+		"overwrite": overwrite,
+	})
+}
+
+// Backup/Restore API Handlers
+
+func (h *Handlers) HandleBackup(w http.ResponseWriter, r *http.Request) {
+	backupPath := helpers.GetQueryParam(r, "path")
+	if backupPath == "" {
+		// Default backup path
+		backupPath = fmt.Sprintf("cortex-backup-%s.db", time.Now().Format("20060102-150405"))
+	}
+
+	if err := h.store.BackupDatabase(backupPath); err != nil {
+		slog.Error("backup error", "error", err, "path", backupPath)
+		http.Error(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Backup created successfully",
+		"path":    backupPath,
+	})
+}
+
+func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
+	backupPath := helpers.GetQueryParam(r, "path")
+	if backupPath == "" {
+		http.Error(w, "path parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get current database path
+	currentPath, err := h.store.GetDatabasePath()
+	if err != nil {
+		slog.Error("get database path error", "error", err)
+		http.Error(w, "internal error: failed to get database path", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if backup file exists
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		http.Error(w, "backup file not found", http.StatusNotFound)
+		return
+	}
+
+	// Note: Restore requires server restart. We'll just copy the file
+	// and inform the user that a restart is needed.
+	if err := copyFile(backupPath, currentPath); err != nil {
+		slog.Error("restore error", "error", err, "backupPath", backupPath, "currentPath", currentPath)
+		http.Error(w, "internal error: failed to restore database: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message":     "Restore completed successfully. Server restart required to use restored database.",
+		"backup_path": backupPath,
+		"restored_to": currentPath,
+		"warning":     "Server must be restarted for changes to take effect",
+	})
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	return nil
 }
 
 // triggerWebhook triggers webhooks for a given event

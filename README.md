@@ -576,6 +576,47 @@ curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user1
 
 **Hinweis:** Beim Löschen eines Bundles bleiben die Memories erhalten, `bundleId` wird auf `NULL` gesetzt.
 
+## Export/Import
+
+Cortex unterstützt **Export und Import** von Daten:
+
+### Daten exportieren
+
+```bash
+curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key" \
+  -o cortex-export.json
+```
+
+### Daten importieren
+
+```bash
+curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d @cortex-export.json
+```
+
+## Backup/Restore
+
+Cortex unterstützt **Backup und Restore** der Datenbank:
+
+### Backup erstellen
+
+```bash
+curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
+  -H "X-API-Key: dein-key"
+```
+
+### Restore durchführen
+
+```bash
+curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
+  -H "X-API-Key: dein-key"
+```
+
+**⚠️ WICHTIG:** Nach dem Restore muss der Server neu gestartet werden!
+
 ## Agent-Tools (geplant)
 
 Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:

@@ -734,6 +734,136 @@ function verifySignature(secret, payload, signature) {
 - **Filterung:** Nur aktive Webhooks mit passendem Event-Typ werden ausgelöst
 - **App-Filter:** Webhooks können app-spezifisch sein (`appId`) oder global
 
+## Export/Import
+
+Cortex unterstützt **Export und Import** von Daten für Migration und Backup.
+
+### `GET /export` - Daten exportieren
+
+Exportiert alle Daten (Memories, Bundles, Webhooks) für einen Tenant als JSON.
+
+**Query-Parameter (erforderlich):**
+- `appId` (string)
+- `externalUserId` (string)
+
+**Response (200 OK):**
+```json
+{
+  "version": "1.0",
+  "export_date": "2026-02-19T10:30:00Z",
+  "memories": [...],
+  "bundles": [...],
+  "webhooks": [...]
+}
+```
+
+**Beispiel:**
+
+```bash
+curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key" \
+  -o cortex-export.json
+```
+
+### `POST /import` - Daten importieren
+
+Importiert Daten aus einem Export-File.
+
+**Query-Parameter (erforderlich):**
+- `appId` (string)
+- `externalUserId` (string)
+- `overwrite` (boolean, optional) - Wenn `true`, werden existierende Einträge überschrieben
+
+**Request Body:**
+```json
+{
+  "version": "1.0",
+  "export_date": "2026-02-19T10:30:00Z",
+  "memories": [...],
+  "bundles": [...],
+  "webhooks": [...]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Import completed successfully",
+  "memories": 42,
+  "bundles": 5,
+  "webhooks": 2,
+  "overwrite": false
+}
+```
+
+**Beispiel:**
+
+```bash
+curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d @cortex-export.json
+```
+
+## Backup/Restore
+
+Cortex unterstützt **Backup und Restore** der gesamten Datenbank.
+
+### `POST /backup` - Datenbank-Backup erstellen
+
+Erstellt ein Backup der SQLite-Datenbank.
+
+**Query-Parameter (optional):**
+- `path` (string) - Pfad für Backup-Datei (Standard: `cortex-backup-YYYYMMDD-HHMMSS.db`)
+
+**Response (200 OK):**
+```json
+{
+  "message": "Backup created successfully",
+  "path": "cortex-backup-20260219-103000.db"
+}
+```
+
+**Beispiel:**
+
+```bash
+# Backup mit Standard-Pfad
+curl -X POST "http://localhost:9123/backup" \
+  -H "X-API-Key: dein-key"
+
+# Backup mit benutzerdefiniertem Pfad
+curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
+  -H "X-API-Key: dein-key"
+```
+
+### `POST /restore` - Datenbank wiederherstellen
+
+Stellt die Datenbank aus einem Backup wieder her.
+
+**⚠️ WICHTIG:** Nach dem Restore muss der Server neu gestartet werden!
+
+**Query-Parameter (erforderlich):**
+- `path` (string) - Pfad zur Backup-Datei
+
+**Response (200 OK):**
+```json
+{
+  "message": "Restore completed successfully. Server restart required to use restored database.",
+  "backup_path": "/backups/cortex-backup.db",
+  "restored_to": "/path/to/cortex.db",
+  "warning": "Server must be restarted for changes to take effect"
+}
+```
+
+**Beispiel:**
+
+```bash
+curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
+  -H "X-API-Key: dein-key"
+```
+
+**Hinweis:** Der Restore-Prozess kopiert die Backup-Datei über die aktuelle Datenbank. Ein Server-Neustart ist erforderlich, damit die Änderungen wirksam werden.
+
 ## Support
 
 - **Dokumentation:** Siehe [README.md](README.md)
