@@ -31,6 +31,78 @@ func (h *Handlers) generateEmbeddingAsync(mem *models.Memory) {
 	}()
 }
 
+// mapMetadataToMemories maps metadata JSON to MetadataMap for all memories
+func (h *Handlers) mapMetadataToMemories(memories []models.Memory) {
+	for i := range memories {
+		if memories[i].Metadata != "" {
+			memories[i].MetadataMap = helpers.UnmarshalMetadata(memories[i].Metadata)
+		}
+	}
+}
+
+// mapEntityDataToEntities maps entity data JSON to DataMap for all entities
+func (h *Handlers) mapEntityDataToEntities(entities []models.Entity) {
+	for i := range entities {
+		entities[i].DataMap = helpers.UnmarshalEntityData(entities[i].Data)
+	}
+}
+
+// buildMemoryWebhookPayload creates a webhook payload for memory events
+func (h *Handlers) buildMemoryWebhookPayload(mem *models.Memory, appID, externalUserID string, eventType webhooks.EventType) map[string]interface{} {
+	payload := map[string]interface{}{
+		"id":               mem.ID,
+		"app_id":           appID,
+		"external_user_id": externalUserID,
+	}
+	
+	if eventType == webhooks.EventMemoryCreated {
+		payload["content"] = mem.Content
+		payload["bundle_id"] = mem.BundleID
+		payload["created_at"] = mem.CreatedAt
+	}
+	
+	return payload
+}
+
+// buildBundleWebhookPayload creates a webhook payload for bundle events
+func (h *Handlers) buildBundleWebhookPayload(bundle *models.Bundle, appID, externalUserID string, eventType webhooks.EventType) map[string]interface{} {
+	payload := map[string]interface{}{
+		"id":               bundle.ID,
+		"app_id":           appID,
+		"external_user_id": externalUserID,
+	}
+	
+	if eventType == webhooks.EventBundleCreated {
+		payload["name"] = bundle.Name
+		payload["created_at"] = bundle.CreatedAt
+	}
+	
+	return payload
+}
+
+// handleStoreOperationWithNotFound handles store operations with NotFound error checking
+// Returns true if error was handled (not found or internal error), false if no error
+func (h *Handlers) handleStoreOperationWithNotFound(w http.ResponseWriter, err error, resourceName, operationName string, contextArgs ...any) bool {
+	if err == nil {
+		return false
+	}
+	if helpers.HandleNotFoundError(w, err, resourceName) {
+		return true
+	}
+	args := append([]any{"error", err, "operation", operationName}, contextArgs...)
+	helpers.HandleInternalErrorSlog(w, operationName+" error", args...)
+	return true
+}
+
+// mapToResponses maps a slice of items to responses using a mapper function
+func mapToResponses[T any, R any](items []T, mapper func(T) R) []R {
+	responses := make([]R, len(items))
+	for i := range items {
+		responses[i] = mapper(items[i])
+	}
+	return responses
+}
+
 // Health Check
 
 func (h *Handlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -60,21 +132,15 @@ func (h *Handlers) HandleRemember(w http.ResponseWriter, r *http.Request) {
 		req.Importance = helpers.DefaultImportance
 	}
 
-	mem := models.Memory{
-		Type:       req.Type,
-		Content:    req.Content,
-		Entity:     req.Entity,
-		Tags:       req.Tags,
-		Importance: req.Importance,
-	}
+	mem := models.NewMemoryFromRememberRequest(&req)
 
-	if err := h.store.CreateMemory(&mem); err != nil {
+	if err := h.store.CreateMemory(mem); err != nil {
 		helpers.HandleInternalErrorSlog(w, "remember insert error", "error", err)
 		return
 	}
 
 	// Generiere Embedding asynchron (nicht-blockierend)
-	h.generateEmbeddingAsync(&mem)
+	h.generateEmbeddingAsync(mem)
 
 	helpers.WriteJSON(w, http.StatusOK, models.RememberResponse{ID: mem.ID})
 }
@@ -91,11 +157,7 @@ func (h *Handlers) HandleRecall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Map metadata for response
-	for i := range memories {
-		if memories[i].Metadata != "" {
-			memories[i].MetadataMap = helpers.UnmarshalMetadata(memories[i].Metadata)
-		}
-	}
+	h.mapMetadataToMemories(memories)
 
 	helpers.WriteJSON(w, http.StatusOK, memories)
 }
@@ -168,9 +230,7 @@ func (h *Handlers) HandleListEntities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range entities {
-		entities[i].DataMap = helpers.UnmarshalEntityData(entities[i].Data)
-	}
+	h.mapEntityDataToEntities(entities)
 
 	helpers.WriteJSON(w, http.StatusOK, entities)
 }
@@ -230,50 +290,25 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
-	appID, externalUserID := helpers.ExtractTenantParams(r, &req)
-
-	fields := map[string]string{
-		"appId":          appID,
-		"externalUserId": externalUserID,
-		"content":        req.Content,
-	}
-	if field, ok := helpers.ValidateRequired(fields); !ok {
-		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
+	appID, externalUserID, ok := helpers.ValidateTenantParamsWithFields(w, r, &req, map[string]string{"content": req.Content}, false)
+	if !ok {
 		return
 	}
 
-	mem := models.Memory{
-		Type:           helpers.DefaultMemType,
-		Content:        req.Content,
-		AppID:          appID,
-		ExternalUserID: externalUserID,
-		BundleID:       req.BundleID,
-		Metadata:       helpers.MarshalMetadata(req.Metadata),
-		Importance:     helpers.DefaultImportance,
-	}
+	mem := models.NewMemoryFromStoreSeedRequest(&req, appID, externalUserID)
 
-	if err := h.store.CreateMemory(&mem); err != nil {
+	if err := h.store.CreateMemory(mem); err != nil {
 		helpers.HandleInternalErrorSlog(w, "store seed error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
 	// Generiere Embedding asynchron (nicht-blockierend)
-	h.generateEmbeddingAsync(&mem)
+	h.generateEmbeddingAsync(mem)
 
 	// Trigger webhook asynchron
-	go h.triggerWebhook(webhooks.EventMemoryCreated, map[string]interface{}{
-		"id":             mem.ID,
-		"app_id":         appID,
-		"external_user_id": externalUserID,
-		"content":        mem.Content,
-		"bundle_id":      mem.BundleID,
-		"created_at":     mem.CreatedAt,
-	})
+	go h.triggerWebhook(webhooks.EventMemoryCreated, h.buildMemoryWebhookPayload(mem, appID, externalUserID, webhooks.EventMemoryCreated))
 
-	helpers.WriteJSON(w, http.StatusOK, models.StoreSeedResponse{
-		ID:      mem.ID,
-		Message: "Memory stored successfully",
-	})
+	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(mem.ID, "Memory stored successfully"))
 }
 
 func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
@@ -385,11 +420,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID)
-	if err != nil {
-		if helpers.HandleNotFoundError(w, err, "Memory") {
-			return
-		}
-		helpers.HandleInternalErrorSlog(w, "delete seed error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
+	if h.handleStoreOperationWithNotFound(w, err, "Memory", "delete seed", "id", id, "appId", appID, "userId", externalUserID) {
 		return
 	}
 
@@ -399,16 +430,9 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trigger webhook asynchron
-	go h.triggerWebhook(webhooks.EventMemoryDeleted, map[string]interface{}{
-		"id":             mem.ID,
-		"app_id":         appID,
-		"external_user_id": externalUserID,
-	})
+	go h.triggerWebhook(webhooks.EventMemoryDeleted, h.buildMemoryWebhookPayload(mem, appID, externalUserID, webhooks.EventMemoryDeleted))
 
-	helpers.WriteJSON(w, http.StatusOK, models.DeleteSeedResponse{
-		Message: "Memory deleted successfully",
-		ID:      mem.ID,
-	})
+	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(mem.ID, "Memory deleted successfully"))
 }
 
 // Bundle API Handlers
@@ -420,15 +444,8 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
-	appID, externalUserID := helpers.ExtractTenantParams(r, &req)
-
-	fields := map[string]string{
-		"appId":          appID,
-		"externalUserId": externalUserID,
-		"name":           req.Name,
-	}
-	if field, ok := helpers.ValidateRequired(fields); !ok {
-		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
+	appID, externalUserID, ok := helpers.ValidateTenantParamsWithFields(w, r, &req, map[string]string{"name": req.Name}, false)
+	if !ok {
 		return
 	}
 
@@ -444,13 +461,7 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trigger webhook asynchron
-	go h.triggerWebhook(webhooks.EventBundleCreated, map[string]interface{}{
-		"id":               bundle.ID,
-		"name":             bundle.Name,
-		"app_id":           bundle.AppID,
-		"external_user_id": bundle.ExternalUserID,
-		"created_at":       bundle.CreatedAt,
-	})
+	go h.triggerWebhook(webhooks.EventBundleCreated, h.buildBundleWebhookPayload(&bundle, bundle.AppID, bundle.ExternalUserID, webhooks.EventBundleCreated))
 
 	helpers.WriteJSON(w, http.StatusOK, bundle.ToBundleResponse())
 }
@@ -473,11 +484,9 @@ func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses := make([]models.BundleResponse, len(bundles))
-	for i := range bundles {
-		responses[i] = bundles[i].ToBundleResponse()
-	}
-
+	responses := mapToResponses(bundles, func(b models.Bundle) models.BundleResponse {
+		return b.ToBundleResponse()
+	})
 	helpers.WriteJSON(w, http.StatusOK, responses)
 }
 
@@ -499,11 +508,7 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bundle, err := h.store.GetBundle(id, appID, externalUserID)
-	if err != nil {
-		if helpers.HandleNotFoundError(w, err, "Bundle") {
-			return
-		}
-		helpers.HandleInternalErrorSlog(w, "get bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
+	if h.handleStoreOperationWithNotFound(w, err, "Bundle", "get bundle", "id", id, "appId", appID, "userId", externalUserID) {
 		return
 	}
 
@@ -527,25 +532,15 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.DeleteBundle(id, appID, externalUserID); err != nil {
-		if helpers.HandleNotFoundError(w, err, "Bundle") {
-			return
-		}
-		helpers.HandleInternalErrorSlog(w, "delete bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
+	if h.handleStoreOperationWithNotFound(w, h.store.DeleteBundle(id, appID, externalUserID), "Bundle", "delete bundle", "id", id, "appId", appID, "userId", externalUserID) {
 		return
 	}
 
-	// Trigger webhook asynchron
-	go h.triggerWebhook(webhooks.EventBundleDeleted, map[string]interface{}{
-		"id":               id,
-		"app_id":           appID,
-		"external_user_id": externalUserID,
-	})
+	// Trigger webhook asynchron - create minimal bundle for payload
+	bundle := &models.Bundle{ID: id, AppID: appID, ExternalUserID: externalUserID}
+	go h.triggerWebhook(webhooks.EventBundleDeleted, h.buildBundleWebhookPayload(bundle, appID, externalUserID, webhooks.EventBundleDeleted))
 
-	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Bundle deleted successfully",
-		"id":      id,
-	})
+	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(id, "Bundle deleted successfully"))
 }
 
 // Webhook API Handlers
@@ -591,11 +586,9 @@ func (h *Handlers) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses := make([]models.WebhookResponse, len(webhookList))
-	for i := range webhookList {
-		responses[i] = webhookList[i].ToWebhookResponse(webhookList[i].Events)
-	}
-
+	responses := mapToResponses(webhookList, func(w models.Webhook) models.WebhookResponse {
+		return w.ToWebhookResponse(w.Events)
+	})
 	helpers.WriteJSON(w, http.StatusOK, responses)
 }
 
@@ -605,18 +598,11 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.DeleteWebhook(id); err != nil {
-		if helpers.HandleNotFoundError(w, err, "Webhook") {
-			return
-		}
-		helpers.HandleInternalErrorSlog(w, "delete webhook error", "error", err, "id", id)
+	if h.handleStoreOperationWithNotFound(w, h.store.DeleteWebhook(id), "Webhook", "delete webhook", "id", id) {
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Webhook deleted successfully",
-		"id":      id,
-	})
+	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(id, "Webhook deleted successfully"))
 }
 
 // Export/Import API Handlers

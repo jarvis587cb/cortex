@@ -1,6 +1,7 @@
 package models
 
 import (
+	"cortex/internal/helpers"
 	"strings"
 	"time"
 )
@@ -22,6 +23,37 @@ type Memory struct {
 	Embedding      string         `gorm:"type:text" json:"-"` // JSON-encoded []float32
 	ContentType    string         `gorm:"column:content_type;default:'text/plain'" json:"content_type,omitempty"`
 	CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+}
+
+// NewMemoryFromRememberRequest creates a Memory from RememberRequest
+func NewMemoryFromRememberRequest(req *RememberRequest) *Memory {
+	mem := &Memory{
+		Type:       req.Type,
+		Content:    req.Content,
+		Entity:     req.Entity,
+		Tags:       req.Tags,
+		Importance: req.Importance,
+	}
+	if mem.Type == "" {
+		mem.Type = helpers.DefaultMemType
+	}
+	if mem.Importance == 0 {
+		mem.Importance = helpers.DefaultImportance
+	}
+	return mem
+}
+
+// NewMemoryFromStoreSeedRequest creates a Memory from StoreSeedRequest
+func NewMemoryFromStoreSeedRequest(req *StoreSeedRequest, appID, externalUserID string) *Memory {
+	return &Memory{
+		Type:           "semantic",
+		Content:        req.Content,
+		AppID:          appID,
+		ExternalUserID: externalUserID,
+		BundleID:       req.BundleID,
+		Metadata:       helpers.MarshalMetadata(req.Metadata),
+		Importance:     5,
+	}
 }
 
 type Entity struct {
@@ -93,18 +125,23 @@ type RelationRequest struct {
 	Type string `json:"type"`
 }
 
+// TenantRequest provides common tenant parameter fields and getters
+type TenantRequest struct {
+	AppID          string `json:"appId"`
+	ExternalUserID string `json:"externalUserId"`
+}
+
+func (r *TenantRequest) GetAppID() string        { return r.AppID }
+func (r *TenantRequest) GetExternalUserID() string { return r.ExternalUserID }
+
 // Neutron-compatible Seeds API Types
 
 type StoreSeedRequest struct {
-	AppID          string         `json:"appId"`
-	ExternalUserID string         `json:"externalUserId"`
-	Content        string         `json:"content"`
-	Metadata       map[string]any `json:"metadata,omitempty"`
-	BundleID       *int64         `json:"bundleId,omitempty"`
+	TenantRequest
+	Content  string         `json:"content"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+	BundleID *int64         `json:"bundleId,omitempty"`
 }
-
-func (r *StoreSeedRequest) GetAppID() string        { return r.AppID }
-func (r *StoreSeedRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type StoreSeedResponse struct {
 	ID      int64  `json:"id"`
@@ -112,15 +149,11 @@ type StoreSeedResponse struct {
 }
 
 type QuerySeedRequest struct {
-	AppID          string `json:"appId"`
-	ExternalUserID string `json:"externalUserId"`
-	Query          string `json:"query"`
-	Limit          int    `json:"limit,omitempty"`
-	BundleID       *int64 `json:"bundleId,omitempty"`
+	TenantRequest
+	Query    string `json:"query"`
+	Limit    int    `json:"limit,omitempty"`
+	BundleID *int64 `json:"bundleId,omitempty"`
 }
-
-func (r *QuerySeedRequest) GetAppID() string        { return r.AppID }
-func (r *QuerySeedRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type QuerySeedResult struct {
 	ID         int64          `json:"id"`
@@ -138,13 +171,9 @@ type DeleteSeedResponse struct {
 // Bundle API Types
 
 type CreateBundleRequest struct {
-	AppID          string `json:"appId"`
-	ExternalUserID string `json:"externalUserId"`
-	Name           string `json:"name"`
+	TenantRequest
+	Name string `json:"name"`
 }
-
-func (r *CreateBundleRequest) GetAppID() string        { return r.AppID }
-func (r *CreateBundleRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type BundleResponse struct {
 	ID             int64     `json:"id"`

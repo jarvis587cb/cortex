@@ -110,6 +110,14 @@ func HandleInternalErrorSlog(w http.ResponseWriter, msg string, args ...any) {
 	http.Error(w, "internal error", http.StatusInternalServerError)
 }
 
+// NewSuccessResponse creates a standardized success response with ID and message
+func NewSuccessResponse(id int64, message string) map[string]interface{} {
+	return map[string]interface{}{
+		"id":      id,
+		"message": message,
+	}
+}
+
 // ExtractAndParseID extracts ID from path and parses it to int64
 // Returns the parsed ID or writes error response and returns false
 func ExtractAndParseID(w http.ResponseWriter, path, prefix string) (int64, bool) {
@@ -162,6 +170,31 @@ func ValidateTenantParams(w http.ResponseWriter, r *http.Request, req TenantPara
 	fields := map[string]string{
 		"appId":          appID,
 		"externalUserId": externalUserID,
+	}
+	
+	if field, valid := ValidateRequired(fields); !valid {
+		msg := "missing required field: " + field
+		if isQueryParam {
+			msg = "missing required query parameter: " + field
+		}
+		http.Error(w, msg, http.StatusBadRequest)
+		return "", "", false
+	}
+	
+	return appID, externalUserID, true
+}
+
+// ValidateTenantParamsWithFields validates tenant parameters plus additional fields
+// Returns true if valid, false otherwise (error already written)
+func ValidateTenantParamsWithFields(w http.ResponseWriter, r *http.Request, req TenantParamExtractor, additionalFields map[string]string, isQueryParam bool) (appID, externalUserID string, ok bool) {
+	appID, externalUserID = ExtractTenantParams(r, req)
+	
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	for k, v := range additionalFields {
+		fields[k] = v
 	}
 	
 	if field, valid := ValidateRequired(fields); !valid {

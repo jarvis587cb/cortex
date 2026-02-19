@@ -65,6 +65,31 @@ func (s *CortexStore) Close() error {
 	return sqlDB.Close()
 }
 
+// applyTenantFilter applies tenant filter (app_id and external_user_id) to a query
+func (s *CortexStore) applyTenantFilter(dbQuery *gorm.DB, appID, externalUserID string) *gorm.DB {
+	return dbQuery.Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+}
+
+// applyOptionalFilters applies optional filters to a query based on a filter map
+func (s *CortexStore) applyOptionalFilters(dbQuery *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	if query, ok := filters["query"].(string); ok && query != "" {
+		dbQuery = dbQuery.Where("content LIKE ?", "%"+query+"%")
+	}
+	if memType, ok := filters["memType"].(string); ok && memType != "" {
+		dbQuery = dbQuery.Where("type = ?", memType)
+	}
+	if bundleID, ok := filters["bundleID"].(*int64); ok && bundleID != nil {
+		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
+	}
+	if entity, ok := filters["entity"].(string); ok && entity != "" {
+		dbQuery = dbQuery.Where("from_entity = ? OR to_entity = ?", entity, entity)
+	}
+	if appID, ok := filters["appID"].(string); ok && appID != "" {
+		dbQuery = dbQuery.Where("app_id = ? OR app_id = ?", appID, "")
+	}
+	return dbQuery
+}
+
 // Memory Operations
 
 func (s *CortexStore) CreateMemory(mem *models.Memory) error {
@@ -75,11 +100,15 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 	var memories []models.Memory
 	dbQuery := s.db.Model(&models.Memory{})
 
-	if query != "" {
-		dbQuery = dbQuery.Where("content LIKE ? OR tags LIKE ?", "%"+query+"%", "%"+query+"%")
+	filters := map[string]interface{}{
+		"query":   query,
+		"memType": memType,
 	}
-	if memType != "" {
-		dbQuery = dbQuery.Where("type = ?", memType)
+	dbQuery = s.applyOptionalFilters(dbQuery, filters)
+	
+	// Special handling for tags search
+	if query != "" {
+		dbQuery = dbQuery.Or("tags LIKE ?", "%"+query+"%")
 	}
 
 	err := dbQuery.Order("created_at DESC").Limit(limit).Find(&memories).Error
@@ -88,16 +117,13 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 
 func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
 	var memories []models.Memory
-	dbQuery := s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 
-	if query != "" {
-		dbQuery = dbQuery.Where("content LIKE ?", "%"+query+"%")
+	filters := map[string]interface{}{
+		"query":    query,
+		"bundleID": bundleID,
 	}
-
-	if bundleID != nil {
-		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
-	}
+	dbQuery = s.applyOptionalFilters(dbQuery, filters)
 
 	err := dbQuery.Order("created_at DESC").Limit(limit).Find(&memories).Error
 	return memories, err
@@ -120,8 +146,7 @@ func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUse
 
 	// Hole alle Memories für diesen Tenant (und optional Bundle)
 	var allMemories []models.Memory
-	dbQuery := s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 	if bundleID != nil {
 		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
 	}
@@ -225,7 +250,9 @@ func (s *CortexStore) BatchGenerateEmbeddings(batchSize int) error {
 
 func (s *CortexStore) GetMemoryByIDAndTenant(id int64, appID, externalUserID string) (*models.Memory, error) {
 	var mem models.Memory
-	err := s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).First(&mem).Error
+	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Where("id = ?", id).
+		First(&mem).Error
 	if err != nil {
 		return nil, err
 	}
@@ -264,9 +291,10 @@ func (s *CortexStore) GetRelations(entity string) ([]models.Relation, error) {
 	var relations []models.Relation
 	dbQuery := s.db.Model(&models.Relation{})
 
-	if entity != "" {
-		dbQuery = dbQuery.Where("from_entity = ? OR to_entity = ?", entity, entity)
+	filters := map[string]interface{}{
+		"entity": entity,
 	}
+	dbQuery = s.applyOptionalFilters(dbQuery, filters)
 
 	err := dbQuery.Order("created_at DESC").Find(&relations).Error
 	return relations, err
@@ -324,7 +352,9 @@ func (s *CortexStore) CreateBundle(bundle *models.Bundle) error {
 
 func (s *CortexStore) GetBundle(id int64, appID, externalUserID string) (*models.Bundle, error) {
 	var bundle models.Bundle
-	err := s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).First(&bundle).Error
+	err := s.applyTenantFilter(s.db.Model(&models.Bundle{}), appID, externalUserID).
+		Where("id = ?", id).
+		First(&bundle).Error
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +363,7 @@ func (s *CortexStore) GetBundle(id int64, appID, externalUserID string) (*models
 
 func (s *CortexStore) ListBundles(appID, externalUserID string) ([]models.Bundle, error) {
 	var bundles []models.Bundle
-	err := s.db.Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
+	err := s.applyTenantFilter(s.db.Model(&models.Bundle{}), appID, externalUserID).
 		Order("created_at DESC").
 		Find(&bundles).Error
 	return bundles, err
@@ -341,14 +371,15 @@ func (s *CortexStore) ListBundles(appID, externalUserID string) ([]models.Bundle
 
 func (s *CortexStore) DeleteBundle(id int64, appID, externalUserID string) error {
 	// Setze bundle_id auf NULL für alle Memories in diesem Bundle
-	if err := s.db.Model(&models.Memory{}).
-		Where("bundle_id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).
+	if err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Where("bundle_id = ?", id).
 		Update("bundle_id", nil).Error; err != nil {
 		return err
 	}
 
 	// Lösche das Bundle
-	return s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).
+	return s.applyTenantFilter(s.db.Model(&models.Bundle{}), appID, externalUserID).
+		Where("id = ?", id).
 		Delete(&models.Bundle{}).Error
 }
 
@@ -369,11 +400,14 @@ func (s *CortexStore) GetWebhook(id int64) (*models.Webhook, error) {
 
 func (s *CortexStore) ListWebhooks(appID string) ([]models.Webhook, error) {
 	var webhooks []models.Webhook
-	query := s.db.Model(&models.Webhook{}).Where("active = ?", true)
-	if appID != "" {
-		query = query.Where("app_id = ? OR app_id = ?", appID, "")
+	dbQuery := s.db.Model(&models.Webhook{}).Where("active = ?", true)
+	
+	filters := map[string]interface{}{
+		"appID": appID,
 	}
-	err := query.Order("created_at DESC").Find(&webhooks).Error
+	dbQuery = s.applyOptionalFilters(dbQuery, filters)
+	
+	err := dbQuery.Order("created_at DESC").Find(&webhooks).Error
 	return webhooks, err
 }
 
