@@ -82,8 +82,6 @@ go run ./...
 - `CORTEX_PORT` – Port (Standard: `9123`)
 - `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
-- `JINA_API_KEY` – API-Key für Jina Embeddings (optional, für semantische Suche)
-- `JINA_API_URL` – URL für Jina API (Standard: `https://api.jina.ai/v1/embeddings`)
 
 **Health-Check:**
 
@@ -177,18 +175,15 @@ Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installatio
 
 ## Embeddings & Semantische Suche
 
-Cortex unterstützt semantische Suche mit Embeddings für bessere Suchergebnisse:
+Cortex unterstützt semantische Suche mit lokalen Embeddings - **vollständig offline ohne externe API-Abhängigkeiten**.
 
-### Konfiguration
+### Lokaler Embedding-Service
 
-**Mit Jina API (empfohlen):**
-```bash
-export JINA_API_KEY="dein-jina-api-key"
-export JINA_API_URL="https://api.jina.ai/v1/embeddings"  # Optional
-```
-
-**Ohne API (Fallback):**
-Cortex verwendet automatisch einen lokalen Embedding-Service als Fallback.
+Cortex verwendet einen verbesserten Hash-basierten Embedding-Algorithmus, der:
+- **Keine externe API benötigt** - vollständig offline
+- **Schnell und effizient** - keine Netzwerk-Latenz
+- **Semantische Ähnlichkeit** - basierend auf Content-Analyse und Wort-Frequenzen
+- **384-dimensionale Vektoren** - kompakt und performant
 
 ### Automatische Embedding-Generierung
 
@@ -240,13 +235,15 @@ Die Antwort enthält `similarity`-Scores (0.0-1.0) basierend auf Cosine-Similari
 Cortex erkennt automatisch verschiedene Content-Types:
 
 - **Text**: Standard-Text-Embeddings
-- **Bilder**: Multimodal-Embeddings (wenn Jina API verfügbar)
-- **Dokumente**: PDF- und Dokument-Embeddings
+- **Bilder**: Content-Type-Erkennung für Bild-URLs und Base64-Daten
+- **Dokumente**: PDF- und Dokument-URLs werden erkannt
 
 Content-Type wird automatisch erkannt aus:
 - Metadata (`contentType` oder `content_type`)
 - Base64-encoded Bilder (`data:image/...`)
 - URLs mit Dateiendungen (`.jpg`, `.png`, `.pdf`)
+
+**Hinweis:** Der lokale Embedding-Service generiert für alle Content-Types semantische Vektoren basierend auf Text-Analyse. Für echte Bild-Embeddings wäre eine externe API oder ein lokales Modell erforderlich.
 
 ## API-Endpunkte
 

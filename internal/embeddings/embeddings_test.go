@@ -135,4 +135,26 @@ func TestLocalEmbeddingService(t *testing.T) {
 	if len(embedding) != service.dimension {
 		t.Errorf("expected dimension %d, got %d", service.dimension, len(embedding))
 	}
+
+	// Teste dass ähnliche Inhalte ähnliche Embeddings haben
+	embedding2, err := service.GenerateEmbedding("test content", "text/plain")
+	if err != nil {
+		t.Fatalf("failed to generate second embedding: %v", err)
+	}
+
+	similarity := CosineSimilarity(embedding, embedding2)
+	if similarity < 0.99 {
+		t.Errorf("identical content should have high similarity, got %f", similarity)
+	}
+
+	// Teste dass verschiedene Inhalte unterschiedliche Embeddings haben
+	embedding3, err := service.GenerateEmbedding("completely different content", "text/plain")
+	if err != nil {
+		t.Fatalf("failed to generate third embedding: %v", err)
+	}
+
+	similarity2 := CosineSimilarity(embedding, embedding3)
+	if similarity2 > 0.9 {
+		t.Errorf("different content should have lower similarity, got %f", similarity2)
+	}
 }
