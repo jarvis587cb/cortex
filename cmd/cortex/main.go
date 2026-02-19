@@ -44,17 +44,17 @@ func main() {
 	handlers := api.NewHandlers(cortexStore)
 	mux := http.NewServeMux()
 
-	// Health check (no auth required)
+	// Health check (no auth required, no rate limit)
 	mux.HandleFunc("/health", handlers.HandleHealth)
 
-	// Neutron-compatible Seeds API
-	mux.HandleFunc("/seeds", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStoreSeed, http.MethodPost)))
-	mux.HandleFunc("/seeds/query", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleQuerySeed, http.MethodPost)))
-	mux.HandleFunc("/seeds/generate-embeddings", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost)))
-	mux.HandleFunc("/seeds/", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete)))
+	// Neutron-compatible Seeds API (with rate limiting)
+	mux.HandleFunc("/seeds", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStoreSeed, http.MethodPost))))
+	mux.HandleFunc("/seeds/query", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleQuerySeed, http.MethodPost))))
+	mux.HandleFunc("/seeds/generate-embeddings", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost))))
+	mux.HandleFunc("/seeds/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete))))
 
-	// Bundles API
-	mux.HandleFunc("/bundles", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	// Bundles API (with rate limiting)
+	mux.HandleFunc("/bundles", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			handlers.HandleCreateBundle(w, r)
@@ -63,8 +63,8 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	}))
-	mux.HandleFunc("/bundles/", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	})))
+	mux.HandleFunc("/bundles/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			handlers.HandleGetBundle(w, r)
@@ -73,7 +73,7 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	}))
+	})))
 
 	// Cortex API
 	mux.HandleFunc("/remember", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleRemember, http.MethodPost)))
@@ -102,7 +102,20 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
-	mux.HandleFunc("/stats", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStats, http.MethodGet)))
+	mux.HandleFunc("/stats", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStats, http.MethodGet))))
+
+	// Webhooks API (with rate limiting)
+	mux.HandleFunc("/webhooks", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handlers.HandleCreateWebhook(w, r)
+		case http.MethodGet:
+			handlers.HandleListWebhooks(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.HandleFunc("/webhooks/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteWebhook, http.MethodDelete))))
 
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {

@@ -43,7 +43,7 @@ func NewCortexStore(dbPath string) (*CortexStore, error) {
 }
 
 func (s *CortexStore) migrate() error {
-	return s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{})
+	return s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{})
 }
 
 func (s *CortexStore) Close() error {
@@ -353,4 +353,38 @@ func (s *CortexStore) DeleteBundle(id int64, appID, externalUserID string) error
 	// Lösche das Bundle
 	return s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).
 		Delete(&models.Bundle{}).Error
+}
+
+// Webhook Operations
+
+func (s *CortexStore) CreateWebhook(webhook *models.Webhook) error {
+	return s.db.Create(webhook).Error
+}
+
+func (s *CortexStore) GetWebhook(id int64) (*models.Webhook, error) {
+	var webhook models.Webhook
+	err := s.db.First(&webhook, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &webhook, nil
+}
+
+func (s *CortexStore) ListWebhooks(appID string) ([]models.Webhook, error) {
+	var webhooks []models.Webhook
+	query := s.db.Model(&models.Webhook{}).Where("active = ?", true)
+	if appID != "" {
+		query = query.Where("app_id = ? OR app_id = ?", appID, "")
+	}
+	err := query.Order("created_at DESC").Find(&webhooks).Error
+	return webhooks, err
+}
+
+func (s *CortexStore) UpdateWebhook(webhook *models.Webhook) error {
+	webhook.UpdatedAt = time.Now()
+	return s.db.Save(webhook).Error
+}
+
+func (s *CortexStore) DeleteWebhook(id int64) error {
+	return s.db.Delete(&models.Webhook{}, id).Error
 }

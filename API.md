@@ -586,13 +586,153 @@ const bundle = await client.createBundle({
 
 ## Rate Limits
 
-Aktuell keine Rate Limits implementiert. Für Produktionsumgebungen empfohlen.
+Cortex unterstützt **Token-Bucket Rate Limiting** zur Begrenzung der API-Anfragen.
+
+### Konfiguration
+
+**Umgebungsvariablen:**
+- `CORTEX_RATE_LIMIT` – Anzahl der erlaubten Requests pro Zeitfenster (Standard: 100)
+- `CORTEX_RATE_LIMIT_WINDOW` – Zeitfenster für Rate Limiting (Standard: `1m`)
+
+**Beispiele:**
+```bash
+# 100 Requests pro Minute (Standard)
+export CORTEX_RATE_LIMIT=100
+export CORTEX_RATE_LIMIT_WINDOW=1m
+
+# 1000 Requests pro Stunde
+export CORTEX_RATE_LIMIT=1000
+export CORTEX_RATE_LIMIT_WINDOW=1h
+
+# Rate Limiting deaktivieren
+export CORTEX_RATE_LIMIT=0
+```
+
+### Verhalten
+
+- **Client-Identifikation:** Basierend auf API-Key oder IP-Adresse
+- **Token-Bucket:** Proportionale Token-Auffüllung über Zeitfenster
+- **Response:** `429 Too Many Requests` mit `Retry-After` Header
+- **Health-Check:** `/health` Endpunkt ist von Rate Limiting ausgenommen
+
+### Beispiel-Response
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+Content-Type: text/plain
+
+rate limit exceeded
+```
 
 ## Versionierung
 
 Aktuelle API-Version: **v1**
 
 Keine Versions-Präfixe in URLs. Breaking Changes werden durch neue Endpunkte oder Parameter gehandhabt.
+
+## Webhooks
+
+Cortex unterstützt **Webhooks** für Event-Benachrichtigungen.
+
+### Events
+
+Verfügbare Event-Typen:
+- `memory.created` – Memory wurde erstellt
+- `memory.deleted` – Memory wurde gelöscht
+- `bundle.created` – Bundle wurde erstellt
+- `bundle.deleted` – Bundle wurde gelöscht
+
+### Webhook erstellen
+
+```bash
+curl -X POST http://localhost:9123/webhooks \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "url": "https://example.com/webhook",
+    "events": ["memory.created", "memory.deleted"],
+    "secret": "webhook-secret",
+    "appId": "myapp"
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "url": "https://example.com/webhook",
+  "events": ["memory.created", "memory.deleted"],
+  "app_id": "myapp",
+  "active": true,
+  "created_at": "2026-02-19T10:30:00Z",
+  "updated_at": "2026-02-19T10:30:00Z"
+}
+```
+
+### Webhooks auflisten
+
+```bash
+curl "http://localhost:9123/webhooks?appId=myapp" \
+  -H "X-API-Key: dein-key"
+```
+
+### Webhook löschen
+
+```bash
+curl -X DELETE "http://localhost:9123/webhooks/1" \
+  -H "X-API-Key: dein-key"
+```
+
+### Webhook-Payload
+
+**Format:**
+```json
+{
+  "event": "memory.created",
+  "timestamp": "2026-02-19T10:30:00Z",
+  "data": {
+    "id": 42,
+    "app_id": "myapp",
+    "external_user_id": "user123",
+    "content": "Der Benutzer mag Kaffee",
+    "bundle_id": 1,
+    "created_at": "2026-02-19T10:30:00Z"
+  }
+}
+```
+
+### Webhook-Signatur
+
+Wenn ein `secret` konfiguriert ist, wird jeder Webhook mit HMAC-SHA256 signiert:
+
+**Header:**
+```
+X-Cortex-Signature: sha256=<signature>
+```
+
+**Verifikation:**
+```javascript
+const crypto = require('crypto');
+
+function verifySignature(secret, payload, signature) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const expected = 'sha256=' + hmac.digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+```
+
+### Webhook-Delivery
+
+- **Asynchron:** Webhooks werden asynchron ausgeliefert (nicht-blockierend)
+- **Timeout:** 10 Sekunden pro Webhook
+- **Retry:** Keine automatischen Retries (kann in Zukunft hinzugefügt werden)
+- **Filterung:** Nur aktive Webhooks mit passendem Event-Typ werden ausgelöst
+- **App-Filter:** Webhooks können app-spezifisch sein (`appId`) oder global
 
 ## Support
 

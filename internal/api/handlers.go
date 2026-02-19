@@ -12,6 +12,7 @@ import (
 	"cortex/internal/helpers"
 	"cortex/internal/models"
 	"cortex/internal/store"
+	"cortex/internal/webhooks"
 )
 
 type Handlers struct {
@@ -281,6 +282,16 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// Trigger webhook asynchron
+	go h.triggerWebhook(webhooks.EventMemoryCreated, map[string]interface{}{
+		"id":             mem.ID,
+		"app_id":         appID,
+		"external_user_id": externalUserID,
+		"content":        mem.Content,
+		"bundle_id":      mem.BundleID,
+		"created_at":     mem.CreatedAt,
+	})
+
 	helpers.WriteJSON(w, http.StatusOK, models.StoreSeedResponse{
 		ID:      mem.ID,
 		Message: "Memory stored successfully",
@@ -430,6 +441,13 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Trigger webhook asynchron
+	go h.triggerWebhook(webhooks.EventMemoryDeleted, map[string]interface{}{
+		"id":             mem.ID,
+		"app_id":         appID,
+		"external_user_id": externalUserID,
+	})
+
 	helpers.WriteJSON(w, http.StatusOK, models.DeleteSeedResponse{
 		Message: "Memory deleted successfully",
 		ID:      mem.ID,
@@ -476,6 +494,15 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+
+	// Trigger webhook asynchron
+	go h.triggerWebhook(webhooks.EventBundleCreated, map[string]interface{}{
+		"id":               bundle.ID,
+		"name":             bundle.Name,
+		"app_id":           bundle.AppID,
+		"external_user_id": bundle.ExternalUserID,
+		"created_at":       bundle.CreatedAt,
+	})
 
 	helpers.WriteJSON(w, http.StatusOK, models.BundleResponse{
 		ID:             bundle.ID,
@@ -600,8 +627,162 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Trigger webhook asynchron
+	go h.triggerWebhook(webhooks.EventBundleDeleted, map[string]interface{}{
+		"id":             id,
+		"app_id":         appID,
+		"external_user_id": externalUserID,
+	})
+
+	// Trigger webhook asynchron
+	go h.triggerWebhook(webhooks.EventBundleDeleted, map[string]interface{}{
+		"id":               id,
+		"app_id":           appID,
+		"external_user_id": externalUserID,
+	})
+
 	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Bundle deleted successfully",
 		"id":      id,
 	})
+}
+
+// Webhook API Handlers
+
+func (h *Handlers) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateWebhookRequest
+	if err := helpers.ParseJSONBody(r, &req); err != nil {
+		http.Error(w, "invalid json body", http.StatusBadRequest)
+		return
+	}
+
+	if req.URL == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Events) == 0 {
+		http.Error(w, "events are required", http.StatusBadRequest)
+		return
+	}
+
+	webhook := models.Webhook{
+		URL:    req.URL,
+		Events: strings.Join(req.Events, ","),
+		Secret: req.Secret,
+		AppID:  req.AppID,
+		Active: true,
+	}
+
+	if err := h.store.CreateWebhook(&webhook); err != nil {
+		slog.Error("create webhook error", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, models.WebhookResponse{
+		ID:        webhook.ID,
+		URL:       webhook.URL,
+		Events:    req.Events,
+		AppID:     webhook.AppID,
+		Active:    webhook.Active,
+		CreatedAt: webhook.CreatedAt,
+		UpdatedAt: webhook.UpdatedAt,
+	})
+}
+
+func (h *Handlers) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+
+	webhookList, err := h.store.ListWebhooks(appID)
+	if err != nil {
+		slog.Error("list webhooks error", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	responses := make([]models.WebhookResponse, len(webhookList))
+	for i, wh := range webhookList {
+		events := strings.Split(wh.Events, ",")
+		responses[i] = models.WebhookResponse{
+			ID:        wh.ID,
+			URL:       wh.URL,
+			Events:    events,
+			AppID:     wh.AppID,
+			Active:    wh.Active,
+			CreatedAt: wh.CreatedAt,
+			UpdatedAt: wh.UpdatedAt,
+		}
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, responses)
+}
+
+func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
+	idStr, err := helpers.ExtractPathID(r.URL.Path, "/webhooks/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id, err := helpers.ParseID(idStr)
+	if err != nil {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.DeleteWebhook(id); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, "Webhook not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("delete webhook error", "error", err, "id", id)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Webhook deleted successfully",
+		"id":      id,
+	})
+}
+
+// triggerWebhook triggers webhooks for a given event
+func (h *Handlers) triggerWebhook(event webhooks.EventType, data map[string]interface{}) {
+	// Get app_id from data if available
+	appID := ""
+	if id, ok := data["app_id"].(string); ok {
+		appID = id
+	}
+
+	// Get active webhooks
+	webhookList, err := h.store.ListWebhooks(appID)
+	if err != nil {
+		slog.Warn("failed to list webhooks", "error", err)
+		return
+	}
+
+	// Convert to webhook configs
+	configs := make([]webhooks.WebhookConfig, 0, len(webhookList))
+	for _, wh := range webhookList {
+		if !wh.Active {
+			continue
+		}
+
+		// Parse events
+		events := strings.Split(wh.Events, ",")
+		eventTypes := make([]webhooks.EventType, 0, len(events))
+		for _, e := range events {
+			eventTypes = append(eventTypes, webhooks.EventType(strings.TrimSpace(e)))
+		}
+
+		configs = append(configs, webhooks.WebhookConfig{
+			URL:    wh.URL,
+			Secret: wh.Secret,
+			Events: eventTypes,
+		})
+	}
+
+	// Deliver webhooks asynchronously
+	webhooks.DeliverWebhooksAsync(configs, event, data)
 }

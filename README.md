@@ -84,6 +84,8 @@ go run ./...
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
 - `JINA_API_KEY` – API-Key für Jina v4 Embeddings (optional, verwendet lokalen Service wenn nicht gesetzt)
 - `JINA_API_URL` – URL für Jina API (Standard: `https://api.jina.ai/v1/embeddings`)
+- `CORTEX_RATE_LIMIT` – Rate Limit (Requests pro Zeitfenster, Standard: 100, 0 = deaktiviert)
+- `CORTEX_RATE_LIMIT_WINDOW` – Rate Limit Zeitfenster (Standard: `1m`)
 
 **Health-Check:**
 

@@ -48,6 +48,17 @@ type Bundle struct {
 	CreatedAt      time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
+type Webhook struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	URL       string    `gorm:"not null" json:"url"`
+	Events    string    `gorm:"not null" json:"events"` // Comma-separated event types
+	Secret    string    `gorm:"not null" json:"-"`      // Webhook secret for signing
+	AppID     string    `gorm:"column:app_id;index" json:"app_id,omitempty"`
+	Active    bool      `gorm:"default:true" json:"active"`
+	CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
+}
+
 type Stats struct {
 	Memories  int64 `json:"memories"`
 	Entities  int64 `json:"entities"`
@@ -129,4 +140,23 @@ type BundleResponse struct {
 	AppID          string    `json:"app_id"`
 	ExternalUserID string    `json:"external_user_id"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// Webhook API Types
+
+type CreateWebhookRequest struct {
+	URL    string   `json:"url"`
+	Events []string `json:"events"`
+	Secret string   `json:"secret,omitempty"`
+	AppID  string   `json:"appId,omitempty"`
+}
+
+type WebhookResponse struct {
+	ID        int64     `json:"id"`
+	URL       string    `json:"url"`
+	Events    []string  `json:"events"`
+	AppID     string    `json:"app_id,omitempty"`
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
