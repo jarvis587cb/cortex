@@ -94,14 +94,6 @@ func (rl *RateLimiter) Allow(clientID string) bool {
 	return false
 }
 
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // getClientID extracts client identifier from request
 func getClientID(r *http.Request) string {
 	// Try API key first (if available)

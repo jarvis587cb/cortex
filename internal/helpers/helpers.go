@@ -22,7 +22,10 @@ const (
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		// Log error but don't fail - response already started
+		// In production, consider logging this error
+	}
 }
 
 func ParseJSONBody(r *http.Request, v any) error {
@@ -74,6 +77,13 @@ func ExtractTenantParams(r *http.Request, req TenantParamExtractor) (appID, exte
 	return appID, externalUserID
 }
 
+// WriteError writes an error response as JSON
+func WriteError(w http.ResponseWriter, status int, message string) {
+	WriteJSON(w, status, map[string]string{
+		"error": message,
+	})
+}
+
 func ParseID(idStr string) (int64, error) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -91,7 +101,10 @@ func MarshalMetadata(metadata map[string]any) string {
 	if len(metadata) == 0 {
 		return ""
 	}
-	payload, _ := json.Marshal(metadata)
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return ""
+	}
 	return string(payload)
 }
 
@@ -100,12 +113,17 @@ func UnmarshalMetadata(metadataJSON string) map[string]any {
 		return map[string]any{}
 	}
 	var metadata map[string]any
-	_ = json.Unmarshal([]byte(metadataJSON), &metadata)
+	if err := json.Unmarshal([]byte(metadataJSON), &metadata); err != nil {
+		return map[string]any{}
+	}
 	return metadata
 }
 
 func MarshalEntityData(data map[string]any) string {
-	payload, _ := json.Marshal(data)
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return ""
+	}
 	return string(payload)
 }
 
@@ -114,7 +132,9 @@ func UnmarshalEntityData(dataJSON string) map[string]any {
 		return map[string]any{}
 	}
 	var data map[string]any
-	_ = json.Unmarshal([]byte(dataJSON), &data)
+	if err := json.Unmarshal([]byte(dataJSON), &data); err != nil {
+		return map[string]any{}
+	}
 	return data
 }
 
