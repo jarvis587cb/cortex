@@ -346,3 +346,122 @@ func TestGetStats(t *testing.T) {
 		t.Errorf("expected 1 relation, got %d", stats.Relations)
 	}
 }
+
+func TestBundleOperations(t *testing.T) {
+	store := setupTestDB(t)
+	defer store.Close()
+
+	// Create bundle
+	bundle := &models.Bundle{
+		Name:           "Test Bundle",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+	}
+
+	err := store.CreateBundle(bundle)
+	if err != nil {
+		t.Fatalf("CreateBundle failed: %v", err)
+	}
+
+	if bundle.ID == 0 {
+		t.Error("bundle ID not set")
+	}
+
+	// Test GetBundle
+	retrieved, err := store.GetBundle(bundle.ID, "app1", "user1")
+	if err != nil {
+		t.Fatalf("GetBundle failed: %v", err)
+	}
+
+	if retrieved.Name != "Test Bundle" {
+		t.Errorf("expected name %s, got %s", "Test Bundle", retrieved.Name)
+	}
+
+	// Test ListBundles
+	bundles, err := store.ListBundles("app1", "user1")
+	if err != nil {
+		t.Fatalf("ListBundles failed: %v", err)
+	}
+
+	if len(bundles) != 1 {
+		t.Errorf("expected 1 bundle, got %d", len(bundles))
+	}
+
+	// Test tenant isolation
+	bundles2, _ := store.ListBundles("app1", "user2")
+	if len(bundles2) != 0 {
+		t.Errorf("expected 0 bundles for user2, got %d", len(bundles2))
+	}
+
+	// Test DeleteBundle
+	err = store.DeleteBundle(bundle.ID, "app1", "user1")
+	if err != nil {
+		t.Fatalf("DeleteBundle failed: %v", err)
+	}
+
+	// Verify deletion
+	_, err = store.GetBundle(bundle.ID, "app1", "user1")
+	if err == nil {
+		t.Error("bundle should be deleted")
+	}
+}
+
+func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
+	store := setupTestDB(t)
+	defer store.Close()
+
+	// Create bundle
+	bundle := &models.Bundle{
+		Name:           "Coffee Bundle",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+	}
+	store.CreateBundle(bundle)
+
+	// Create memories with and without bundle
+	mem1 := &models.Memory{
+		Type:           "semantic",
+		Content:        "Coffee preference",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		BundleID:       &bundle.ID,
+		Importance:     5,
+	}
+	mem2 := &models.Memory{
+		Type:           "semantic",
+		Content:        "Tea preference",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		Importance:     5,
+	}
+	mem3 := &models.Memory{
+		Type:           "semantic",
+		Content:        "Another coffee note",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		BundleID:       &bundle.ID,
+		Importance:     5,
+	}
+
+	store.CreateMemory(mem1)
+	store.CreateMemory(mem2)
+	store.CreateMemory(mem3)
+
+	// Search without bundle filter
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "preference", nil, 10)
+	if err != nil {
+		t.Fatalf("SearchMemoriesByTenantAndBundle failed: %v", err)
+	}
+	if len(memories) != 2 {
+		t.Errorf("expected 2 memories, got %d", len(memories))
+	}
+
+	// Search with bundle filter
+	bundleMemories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "coffee", &bundle.ID, 10)
+	if err != nil {
+		t.Fatalf("SearchMemoriesByTenantAndBundle with bundle failed: %v", err)
+	}
+	if len(bundleMemories) != 2 {
+		t.Errorf("expected 2 memories in bundle, got %d", len(bundleMemories))
+	}
+}

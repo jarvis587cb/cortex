@@ -238,9 +238,19 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
+	appID := helpers.GetQueryParam(r, "appId")
+	if appID == "" {
+		appID = req.AppID
+	}
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if externalUserID == "" {
+		externalUserID = req.ExternalUserID
+	}
+
 	fields := map[string]string{
-		"appId":          req.AppID,
-		"externalUserId": req.ExternalUserID,
+		"appId":          appID,
+		"externalUserId": externalUserID,
 		"content":        req.Content,
 	}
 	if field, ok := helpers.ValidateRequired(fields); !ok {
@@ -251,14 +261,15 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	mem := models.Memory{
 		Type:           helpers.DefaultMemType,
 		Content:        req.Content,
-		AppID:          req.AppID,
-		ExternalUserID: req.ExternalUserID,
+		AppID:          appID,
+		ExternalUserID: externalUserID,
+		BundleID:       req.BundleID,
 		Metadata:       helpers.MarshalMetadata(req.Metadata),
 		Importance:     helpers.DefaultImportance,
 	}
 
 	if err := h.store.CreateMemory(&mem); err != nil {
-		slog.Error("store seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID)
+		slog.Error("store seed error", "error", err, "appId", appID, "userId", externalUserID)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -283,9 +294,19 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
+	appID := helpers.GetQueryParam(r, "appId")
+	if appID == "" {
+		appID = req.AppID
+	}
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if externalUserID == "" {
+		externalUserID = req.ExternalUserID
+	}
+
 	fields := map[string]string{
-		"appId":          req.AppID,
-		"externalUserId": req.ExternalUserID,
+		"appId":          appID,
+		"externalUserId": externalUserID,
 		"query":          req.Query,
 	}
 	if field, ok := helpers.ValidateRequired(fields); !ok {
@@ -299,12 +320,12 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Versuche semantische Suche, fallback zu Textsuche
-	memories, err := h.store.SearchMemoriesByTenantSemantic(req.AppID, req.ExternalUserID, req.Query, limit)
+	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit)
 	if err != nil {
 		// Fallback zu Textsuche
-		memories, err = h.store.SearchMemoriesByTenant(req.AppID, req.ExternalUserID, req.Query, limit)
+		memories, err = h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit)
 		if err != nil {
-			slog.Error("query seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID, "query", req.Query)
+			slog.Error("query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
@@ -412,5 +433,175 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, http.StatusOK, models.DeleteSeedResponse{
 		Message: "Memory deleted successfully",
 		ID:      mem.ID,
+	})
+}
+
+// Bundle API Handlers
+
+func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateBundleRequest
+	if err := helpers.ParseJSONBody(r, &req); err != nil {
+		http.Error(w, "invalid json body", http.StatusBadRequest)
+		return
+	}
+
+	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
+	appID := helpers.GetQueryParam(r, "appId")
+	if appID == "" {
+		appID = req.AppID
+	}
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if externalUserID == "" {
+		externalUserID = req.ExternalUserID
+	}
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+		"name":           req.Name,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
+		return
+	}
+
+	bundle := models.Bundle{
+		Name:           req.Name,
+		AppID:          appID,
+		ExternalUserID: externalUserID,
+	}
+
+	if err := h.store.CreateBundle(&bundle); err != nil {
+		slog.Error("create bundle error", "error", err, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, models.BundleResponse{
+		ID:             bundle.ID,
+		Name:           bundle.Name,
+		AppID:          bundle.AppID,
+		ExternalUserID: bundle.ExternalUserID,
+		CreatedAt:      bundle.CreatedAt,
+	})
+}
+
+func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
+		return
+	}
+
+	bundles, err := h.store.ListBundles(appID, externalUserID)
+	if err != nil {
+		slog.Error("list bundles error", "error", err, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	responses := make([]models.BundleResponse, len(bundles))
+	for i, bundle := range bundles {
+		responses[i] = models.BundleResponse{
+			ID:             bundle.ID,
+			Name:           bundle.Name,
+			AppID:          bundle.AppID,
+			ExternalUserID: bundle.ExternalUserID,
+			CreatedAt:      bundle.CreatedAt,
+		}
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, responses)
+}
+
+func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
+	idStr, err := helpers.ExtractPathID(r.URL.Path, "/bundles/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id, err := helpers.ParseID(idStr)
+	if err != nil {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
+		return
+	}
+
+	bundle, err := h.store.GetBundle(id, appID, externalUserID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, "Bundle not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("get bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, models.BundleResponse{
+		ID:             bundle.ID,
+		Name:           bundle.Name,
+		AppID:          bundle.AppID,
+		ExternalUserID: bundle.ExternalUserID,
+		CreatedAt:      bundle.CreatedAt,
+	})
+}
+
+func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
+	idStr, err := helpers.ExtractPathID(r.URL.Path, "/bundles/")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id, err := helpers.ParseID(idStr)
+	if err != nil {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return
+	}
+
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.DeleteBundle(id, appID, externalUserID); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, "Bundle not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("delete bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Bundle deleted successfully",
+		"id":      id,
 	})
 }

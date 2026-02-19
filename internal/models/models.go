@@ -13,6 +13,7 @@ type Memory struct {
 	Importance     int            `gorm:"not null;default:5" json:"importance"`
 	AppID          string         `gorm:"column:app_id;not null;default:'openclaw';index" json:"app_id,omitempty"`
 	ExternalUserID string         `gorm:"column:external_user_id;not null;default:'default';index" json:"external_user_id,omitempty"`
+	BundleID       *int64         `gorm:"column:bundle_id;index" json:"bundle_id,omitempty"`
 	Metadata       string         `gorm:"type:text" json:"-"`
 	MetadataMap    map[string]any `gorm:"-" json:"metadata,omitempty"`
 	Embedding      string         `gorm:"type:text" json:"-"` // JSON-encoded []float32
@@ -37,6 +38,14 @@ type Relation struct {
 	ValidFrom *time.Time `gorm:"column:valid_from" json:"valid_from,omitempty"`
 	ValidTo   *time.Time `gorm:"column:valid_to" json:"valid_to,omitempty"`
 	CreatedAt time.Time  `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+}
+
+type Bundle struct {
+	ID             int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name           string    `gorm:"not null" json:"name"`
+	AppID          string    `gorm:"column:app_id;not null;index" json:"app_id"`
+	ExternalUserID string    `gorm:"column:external_user_id;not null;index" json:"external_user_id"`
+	CreatedAt      time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 type Stats struct {
@@ -77,6 +86,7 @@ type StoreSeedRequest struct {
 	ExternalUserID string         `json:"externalUserId"`
 	Content        string         `json:"content"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
+	BundleID       *int64         `json:"bundleId,omitempty"`
 }
 
 type StoreSeedResponse struct {
@@ -89,6 +99,7 @@ type QuerySeedRequest struct {
 	ExternalUserID string `json:"externalUserId"`
 	Query          string `json:"query"`
 	Limit          int    `json:"limit,omitempty"`
+	BundleID       *int64 `json:"bundleId,omitempty"`
 }
 
 type QuerySeedResult struct {
@@ -102,4 +113,20 @@ type QuerySeedResult struct {
 type DeleteSeedResponse struct {
 	Message string `json:"message"`
 	ID      int64  `json:"id"`
+}
+
+// Bundle API Types
+
+type CreateBundleRequest struct {
+	AppID          string `json:"appId"`
+	ExternalUserID string `json:"externalUserId"`
+	Name           string `json:"name"`
+}
+
+type BundleResponse struct {
+	ID             int64     `json:"id"`
+	Name           string    `json:"name"`
+	AppID          string    `json:"app_id"`
+	ExternalUserID string    `json:"external_user_id"`
+	CreatedAt      time.Time `json:"created_at"`
 }

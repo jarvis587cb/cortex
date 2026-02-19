@@ -43,7 +43,7 @@ func NewCortexStore(dbPath string) (*CortexStore, error) {
 }
 
 func (s *CortexStore) migrate() error {
-	return s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{})
+	return s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{})
 }
 
 func (s *CortexStore) Close() error {
@@ -76,10 +76,21 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 }
 
 func (s *CortexStore) SearchMemoriesByTenant(appID, externalUserID, query string, limit int) ([]models.Memory, error) {
+	return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, nil, limit)
+}
+
+func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
-		Where("content LIKE ?", "%"+query+"%")
+		Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+
+	if query != "" {
+		dbQuery = dbQuery.Where("content LIKE ?", "%"+query+"%")
+	}
+
+	if bundleID != nil {
+		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
+	}
 
 	err := dbQuery.Order("created_at DESC").Limit(limit).Find(&memories).Error
 	return memories, err
@@ -87,24 +98,31 @@ func (s *CortexStore) SearchMemoriesByTenant(appID, externalUserID, query string
 
 // SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
 func (s *CortexStore) SearchMemoriesByTenantSemantic(appID, externalUserID, query string, limit int) ([]models.Memory, error) {
+	return s.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query, nil, limit)
+}
+
+func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
 	// Generiere Embedding für Query
 	embeddingService := embeddings.GetEmbeddingService()
 	queryEmbedding, err := embeddingService.GenerateEmbedding(query, "text/plain")
 	if err != nil {
 		// Fallback zu Textsuche bei Fehler
-		return s.SearchMemoriesByTenant(appID, externalUserID, query, limit)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit)
 	}
 
 	if queryEmbedding == nil {
 		// Fallback zu Textsuche wenn kein Embedding generiert werden konnte
-		return s.SearchMemoriesByTenant(appID, externalUserID, query, limit)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit)
 	}
 
-	// Hole alle Memories für diesen Tenant
+	// Hole alle Memories für diesen Tenant (und optional Bundle)
 	var allMemories []models.Memory
-	err = s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
-		Find(&allMemories).Error
+	dbQuery := s.db.Model(&models.Memory{}).
+		Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+	if bundleID != nil {
+		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
+	}
+	err = dbQuery.Find(&allMemories).Error
 	if err != nil {
 		return nil, err
 	}
@@ -299,4 +317,40 @@ func (s *CortexStore) GetStats() (*models.Stats, error) {
 		return nil, err
 	}
 	return &stats, nil
+}
+
+// Bundle Operations
+
+func (s *CortexStore) CreateBundle(bundle *models.Bundle) error {
+	return s.db.Create(bundle).Error
+}
+
+func (s *CortexStore) GetBundle(id int64, appID, externalUserID string) (*models.Bundle, error) {
+	var bundle models.Bundle
+	err := s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).First(&bundle).Error
+	if err != nil {
+		return nil, err
+	}
+	return &bundle, nil
+}
+
+func (s *CortexStore) ListBundles(appID, externalUserID string) ([]models.Bundle, error) {
+	var bundles []models.Bundle
+	err := s.db.Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
+		Order("created_at DESC").
+		Find(&bundles).Error
+	return bundles, err
+}
+
+func (s *CortexStore) DeleteBundle(id int64, appID, externalUserID string) error {
+	// Setze bundle_id auf NULL für alle Memories in diesem Bundle
+	if err := s.db.Model(&models.Memory{}).
+		Where("bundle_id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).
+		Update("bundle_id", nil).Error; err != nil {
+		return err
+	}
+
+	// Lösche das Bundle
+	return s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).
+		Delete(&models.Bundle{}).Error
 }

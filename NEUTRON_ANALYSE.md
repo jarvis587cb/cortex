@@ -78,15 +78,17 @@ Content-Type: application/json
 |--------|---------|--------|
 | **Deployment** | ☁️ Cloud (SaaS) | 🏠 Lokal (Self-hosted) |
 | **Datenbank** | PostgreSQL + pgvector | SQLite (pure-Go) |
-| **Embeddings** | ✅ Jina v4 (1024-dim) | ❌ Keine (Textsuche mit LIKE) |
-| **Semantische Suche** | ✅ Cosine-Similarity | ⚠️ Textsuche (Heuristik) |
-| **Multimodal** | ✅ Text + Bilder + Docs | ❌ Nur Text |
+| **Embeddings** | ✅ Jina v4 (1024-dim) | ✅ Jina v4 (1024-dim) oder Lokal (384-dim) |
+| **Semantische Suche** | ✅ Cosine-Similarity | ✅ Cosine-Similarity |
+| **Multimodal** | ✅ Text + Bilder + Docs | ✅ Text + Bilder + Docs (mit Jina v4) |
 | **Performance** | Sub-200ms | Abhängig von Datenmenge |
 | **Skalierung** | ✅ Hochskalierbar | ⚠️ Single-Instance (SQLite) |
 | **Kosten** | 💰 Pay-per-use | ✅ Kostenlos (Self-hosted) |
 | **Authentifizierung** | ✅ Bearer Token (nk_...) | ✅ Optional API-Key |
-| **Bundles** | ✅ Unterstützt | ❌ Nicht implementiert |
-| **Sprachen** | ✅ 100+ (Jina v4) | ⚠️ Basis-Unterstützung |
+| **Bundles** | ✅ Unterstützt | ✅ Unterstützt |
+| **TypeScript SDK** | ✅ SDK vorhanden | ✅ SDK vorhanden |
+| **Query-Parameter** | ✅ Tenant-IDs in Query-String | ✅ Unterstützt (mit Body-Fallback) |
+| **Sprachen** | ✅ 100+ (Jina v4) | ✅ 100+ (mit Jina v4) oder Basis (lokal) |
 
 ## API-Kompatibilität
 
@@ -237,24 +239,46 @@ Body: { appId, externalUserId, content, metadata }
 
 verwendet werden.
 
-## Nächste Schritte
+## Status-Update (2026-02-19)
 
-### Für Cortex-Entwicklung:
+### Vollständig implementiert ✅
 
-1. **Embeddings hinzufügen** (optional)
-   - Jina v4 Integration
-   - Semantische Suche implementieren
-   - Performance optimieren
+1. **Embeddings** ✅
+   - Jina v4 Integration (optional)
+   - Lokaler Embedding-Service (Fallback)
+   - Semantische Suche mit Cosine-Similarity
+   - Automatische Service-Auswahl
 
-2. **Bundles-Feature** (optional)
+2. **Bundles-Feature** ✅
    - Organisation von Memories
-   - Gruppierung nach Projekten/Topics
+   - CRUD-Operationen für Bundles
+   - Memory-Filterung nach Bundle-ID
 
-3. **Migration-Tools** (optional)
-   - Export/Import von Neutron-Daten
-   - Synchronisation zwischen Systemen
+3. **Query-Parameter-Support** ✅
+   - Neutron-Style Query-Parameter
+   - Body-Parameter als Fallback
+   - Beide Formate unterstützt
 
-4. **Dokumentation erweitern**
-   - Neutron-Kompatibilität hervorheben
-   - Migrations-Guide erstellen
-   - Vergleichs-Tabelle aktualisieren
+4. **TypeScript SDK** ✅
+   - Vollständiges SDK mit TypeScript-Typen
+   - Neutron-kompatible API
+   - Bundle-Unterstützung
+   - Dual-Parameter-Support
+
+## Fazit
+
+**Cortex ist jetzt vollständig kompatibel mit der Neutron Memory API:**
+
+- ✅ Alle Kern-Features implementiert
+- ✅ Gleiche API-Struktur
+- ✅ Gleiche Request/Response-Formate
+- ✅ Query-Parameter-Support
+- ✅ Bundles-Unterstützung
+- ✅ TypeScript SDK verfügbar
+- ✅ Jina v4 Integration (optional)
+
+**Cortex kann als vollwertige Alternative zu Neutron verwendet werden:**
+- Lokale Kontrolle und Privacy
+- Kostenlos (Self-hosted)
+- Neutron-kompatible API
+- Optional: Upgrade auf Jina v4 für bessere Embeddings

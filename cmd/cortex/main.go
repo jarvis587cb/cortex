@@ -53,6 +53,28 @@ func main() {
 	mux.HandleFunc("/seeds/generate-embeddings", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost)))
 	mux.HandleFunc("/seeds/", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete)))
 
+	// Bundles API
+	mux.HandleFunc("/bundles", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handlers.HandleCreateBundle(w, r)
+		case http.MethodGet:
+			handlers.HandleListBundles(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/bundles/", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.HandleGetBundle(w, r)
+		case http.MethodDelete:
+			handlers.HandleDeleteBundle(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+
 	// Cortex API
 	mux.HandleFunc("/remember", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleRemember, http.MethodPost)))
 	mux.HandleFunc("/recall", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleRecall, http.MethodGet)))

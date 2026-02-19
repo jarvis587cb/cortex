@@ -1,7 +1,13 @@
 package embeddings
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"os"
 	"strings"
 )
 
@@ -106,9 +112,162 @@ func (l *LocalEmbeddingService) hashString(s string) uint32 {
 	return hash
 }
 
+// JinaEmbeddingService implementiert EmbeddingService mit Jina API
+type JinaEmbeddingService struct {
+	apiKey     string
+	apiURL     string
+	httpClient *http.Client
+}
+
+// NewJinaEmbeddingService erstellt einen neuen Jina Embedding Service
+func NewJinaEmbeddingService() *JinaEmbeddingService {
+	apiKey := os.Getenv("JINA_API_KEY")
+	apiURL := os.Getenv("JINA_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.jina.ai/v1/embeddings"
+	}
+
+	return &JinaEmbeddingService{
+		apiKey:     apiKey,
+		apiURL:     apiURL,
+		httpClient: &http.Client{},
+	}
+}
+
+// IsAvailable prüft ob der Service verfügbar ist
+func (j *JinaEmbeddingService) IsAvailable() bool {
+	return j.apiKey != ""
+}
+
+// GenerateEmbedding generiert ein Embedding für einen Content
+func (j *JinaEmbeddingService) GenerateEmbedding(content string, contentType string) ([]float32, error) {
+	if !j.IsAvailable() {
+		return nil, fmt.Errorf("Jina API key not configured")
+	}
+
+	// Bestimme Model basierend auf Content-Type
+	model := "jina-embeddings-v2-base-en" // Standard für Text
+	if strings.HasPrefix(contentType, "image/") {
+		model = "jina-clip-v2-base-en" // Multimodal für Bilder
+	}
+
+	payload := map[string]interface{}{
+		"model": model,
+		"input": []string{content},
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", j.apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+j.apiKey)
+
+	resp, err := j.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []struct {
+			Embedding []float32 `json:"embedding"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(result.Data) == 0 {
+		return nil, fmt.Errorf("no embedding returned")
+	}
+
+	return result.Data[0].Embedding, nil
+}
+
+// GenerateEmbeddingsBatch generiert Embeddings für mehrere Contents
+func (j *JinaEmbeddingService) GenerateEmbeddingsBatch(contents []string, contentType string) ([][]float32, error) {
+	if !j.IsAvailable() {
+		return nil, fmt.Errorf("Jina API key not configured")
+	}
+
+	if len(contents) == 0 {
+		return nil, nil
+	}
+
+	model := "jina-embeddings-v2-base-en"
+	if strings.HasPrefix(contentType, "image/") {
+		model = "jina-clip-v2-base-en"
+	}
+
+	payload := map[string]interface{}{
+		"model": model,
+		"input": contents,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", j.apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+j.apiKey)
+
+	resp, err := j.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []struct {
+			Embedding []float32 `json:"embedding"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	embeddings := make([][]float32, len(result.Data))
+	for i, item := range result.Data {
+		embeddings[i] = item.Embedding
+	}
+
+	return embeddings, nil
+}
+
 // GetEmbeddingService gibt den verfügbaren Embedding-Service zurück
-// Verwendet immer den lokalen Service (keine externe API-Abhängigkeit)
+// Prüft JINA_API_KEY: Wenn vorhanden, verwendet Jina v4, sonst lokalen Service
 func GetEmbeddingService() EmbeddingService {
+	jina := NewJinaEmbeddingService()
+	if jina.IsAvailable() {
+		slog.Info("Using Jina v4 Embedding Service")
+		return jina
+	}
+
 	slog.Info("Using Local Embedding Service")
 	return NewLocalEmbeddingService()
 }

@@ -82,6 +82,8 @@ go run ./...
 - `CORTEX_PORT` – Port (Standard: `9123`)
 - `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
+- `JINA_API_KEY` – API-Key für Jina v4 Embeddings (optional, verwendet lokalen Service wenn nicht gesetzt)
+- `JINA_API_URL` – URL für Jina API (Standard: `https://api.jina.ai/v1/embeddings`)
 
 **Health-Check:**
 
@@ -175,15 +177,26 @@ Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installatio
 
 ## Embeddings & Semantische Suche
 
-Cortex unterstützt semantische Suche mit lokalen Embeddings - **vollständig offline ohne externe API-Abhängigkeiten**.
+Cortex unterstützt semantische Suche mit Embeddings - **wahlweise lokal oder mit Jina v4**.
 
-### Lokaler Embedding-Service
+### Embedding-Service-Auswahl
 
-Cortex verwendet einen verbesserten Hash-basierten Embedding-Algorithmus, der:
-- **Keine externe API benötigt** - vollständig offline
-- **Schnell und effizient** - keine Netzwerk-Latenz
-- **Semantische Ähnlichkeit** - basierend auf Content-Analyse und Wort-Frequenzen
-- **384-dimensionale Vektoren** - kompakt und performant
+Cortex wählt automatisch den besten verfügbaren Service:
+
+**Mit Jina v4 (empfohlen für Produktion):**
+```bash
+export JINA_API_KEY="dein-jina-api-key"
+export JINA_API_URL="https://api.jina.ai/v1/embeddings"  # Optional
+```
+- ✅ **1024-dimensionale Embeddings** - Hochwertige semantische Repräsentation
+- ✅ **Multimodal-Support** - Text, Bilder und Dokumente
+- ✅ **100+ Sprachen** - Native Multilingual-Unterstützung
+
+**Ohne API (lokaler Service):**
+- ✅ **384-dimensionale Embeddings** - Kompakt und performant
+- ✅ **Vollständig offline** - Keine externe API-Abhängigkeit
+- ✅ **Schnell** - Keine Netzwerk-Latenz
+- ✅ **Hash-basierter Algorithmus** - Basierend auf Content-Analyse und Wort-Frequenzen
 
 ### Automatische Embedding-Generierung
 
@@ -245,22 +258,136 @@ Content-Type wird automatisch erkannt aus:
 
 **Hinweis:** Der lokale Embedding-Service generiert für alle Content-Types semantische Vektoren basierend auf Text-Analyse. Für echte Bild-Embeddings wäre eine externe API oder ein lokales Modell erforderlich.
 
+## Bundles
+
+Cortex unterstützt **Bundles** zur Organisation von Memories in logische Gruppen:
+
+### Bundle erstellen
+
+```bash
+curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{"name": "Coffee Preferences"}'
+```
+
+### Bundles auflisten
+
+```bash
+curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key"
+```
+
+### Memory in Bundle speichern
+
+```bash
+curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "content": "Lieblingskaffee: Latte mit Hafermilch",
+    "bundleId": 1
+  }'
+```
+
+### Memories in Bundle suchen
+
+```bash
+curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "query": "Kaffee",
+    "bundleId": 1,
+    "limit": 10
+  }'
+```
+
+## TypeScript SDK
+
+Cortex bietet ein offizielles TypeScript SDK für einfache Integration:
+
+### Installation
+
+```bash
+cd sdk
+npm install
+npm run build
+```
+
+### Verwendung
+
+```typescript
+import { CortexClient } from "@cortex/memory-sdk";
+
+const client = new CortexClient({
+  baseUrl: "http://localhost:9123",
+  apiKey: "your-api-key",
+  appId: "myapp",
+  externalUserId: "user123",
+});
+
+// Memory speichern
+const memory = await client.storeMemory({
+  appId: "myapp",
+  externalUserId: "user123",
+  content: "Der Benutzer mag Kaffee",
+  metadata: { source: "chat" },
+});
+
+// Memory-Suche
+const results = await client.queryMemory({
+  appId: "myapp",
+  externalUserId: "user123",
+  query: "Was mag der Benutzer?",
+  limit: 5,
+});
+
+// Bundle erstellen
+const bundle = await client.createBundle({
+  appId: "myapp",
+  externalUserId: "user123",
+  name: "Coffee Preferences",
+});
+```
+
+Siehe [sdk/README.md](sdk/README.md) für vollständige Dokumentation.
+
 ## API-Endpunkte
 
 ### Neutron-kompatible Seeds-API
 
-Kompatibel mit neutron-local (gleiche Request/Response-Formate):
+Vollständig kompatibel mit Neutron Memory API (gleiche Request/Response-Formate):
+
+**Unterstützt beide Parameter-Formate:**
+- **Query-Parameter** (Neutron-Style): `?appId=xxx&externalUserId=yyy`
+- **Body-Parameter** (Cortex-Style): `{ "appId": "xxx", "externalUserId": "yyy" }`
 
 #### `POST /seeds` – Memory speichern
 
+**Mit Query-Parameter (Neutron-Style):**
+```bash
+curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "content": "Der Nutzer mag Kaffee mit Hafermilch",
+    "metadata": {"tags": ["preferences", "coffee"]},
+    "bundleId": 1
+  }'
+```
+
+**Mit Body-Parameter (Cortex-Style):**
 ```bash
 curl -X POST http://localhost:9123/seeds \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "openclaw",
     "externalUserId": "user1",
     "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "metadata": {"tags": ["preferences", "coffee"]}
+    "metadata": {"tags": ["preferences", "coffee"]},
+    "bundleId": 1
   }'
 ```
 
@@ -274,14 +401,29 @@ curl -X POST http://localhost:9123/seeds \
 
 #### `POST /seeds/query` – Memory-Suche
 
+**Mit Query-Parameter (Neutron-Style):**
+```bash
+curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=user1" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "query": "Kaffee-Präferenzen",
+    "limit": 5,
+    "bundleId": 1
+  }'
+```
+
+**Mit Body-Parameter (Cortex-Style):**
 ```bash
 curl -X POST http://localhost:9123/seeds/query \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "openclaw",
     "externalUserId": "user1",
     "query": "Kaffee-Präferenzen",
-    "limit": 5
+    "limit": 5,
+    "bundleId": 1
   }'
 ```
 
@@ -398,6 +540,40 @@ curl http://localhost:9123/stats
 }
 ```
 
+## Bundles API
+
+### `POST /bundles` – Bundle erstellen
+
+```bash
+curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{"name": "Coffee Preferences"}'
+```
+
+### `GET /bundles` – Bundles auflisten
+
+```bash
+curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key"
+```
+
+### `GET /bundles/:id` – Bundle abrufen
+
+```bash
+curl "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key"
+```
+
+### `DELETE /bundles/:id` – Bundle löschen
+
+```bash
+curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key"
+```
+
+**Hinweis:** Beim Löschen eines Bundles bleiben die Memories erhalten, `bundleId` wird auf `NULL` gesetzt.
+
 ## Agent-Tools (geplant)
 
 Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
@@ -407,6 +583,9 @@ Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 - **`store_memory`** – Memory speichern (Multi-Tenant)
 - **`query_memory`** – Memory-Suche durchführen
 - **`delete_memory`** – Memory löschen (tenant-sicher)
+- **`create_bundle`** – Bundle erstellen
+- **`list_bundles`** – Bundles auflisten
+- **`delete_bundle`** – Bundle löschen
 - **`health_check`** – API-Status prüfen
 
 ### Cortex-Tools
@@ -418,7 +597,7 @@ Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 - **`cortex_relation_add`** – Relation hinzufügen
 - **`cortex_stats`** – Statistiken abrufen
 
-**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API oder das CLI-Tool (`scripts/cortex-cli.sh`) verwendet werden.
+**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API, das TypeScript SDK oder das CLI-Tool (`scripts/cortex-cli.sh`) verwendet werden.
 
 ## Datenmodell
 
