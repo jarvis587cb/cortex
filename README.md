@@ -13,7 +13,7 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 ## Architektur
 
-Cortex besteht aus zwei Komponenten:
+Cortex besteht aus folgenden Komponenten:
 
 ### 1. Go-Server (`cortex`)
 
@@ -22,10 +22,28 @@ Cortex besteht aus zwei Komponenten:
 - **Datenbank**: SQLite (`~/.openclaw/cortex.db` oder über `CORTEX_DB_PATH`)
 - **Port**: 9123 (Standard) oder über `CORTEX_PORT`
 - **Technologie**: Go 1.23+, GORM, `github.com/glebarez/sqlite` (pure-Go)
+- **Code-Struktur**: 
+  - `main.go` – Server-Start und Routing
+  - `models.go` – Datenmodelle
+  - `store.go` – Datenbank-Operationen
+  - `handlers.go` – HTTP-Handler
+  - `helpers.go` – Utility-Funktionen
+  - `middleware.go` – HTTP-Middleware
 
-### 2. OpenClaw-Plugin (`plugin/`)
+### 2. Scripts (`scripts/`)
 
-**TypeScript-Plugin** für OpenClaw-Agenten:
+**Bash-Scripts** für CLI, Tests und Benchmarks:
+
+- `cortex-cli.sh` – CLI-Tool für alle API-Operationen
+- `benchmark.sh` – Performance-Benchmarks
+- `test-e2e.sh` – End-to-End-Tests
+- `lib/common.sh` – Gemeinsame Funktionen für Scripts
+
+Siehe [scripts/README.md](scripts/README.md) für Details.
+
+### 3. OpenClaw-Plugin (geplant)
+
+**TypeScript-Plugin** für OpenClaw-Agenten (in Entwicklung):
 
 - Registriert Agent-Tools für Memory-Operationen
 - Ruft die Go-API über HTTP auf
@@ -53,22 +71,49 @@ curl http://localhost:9123/health
 # {"status":"ok","timestamp":"2026-02-19T15:00:00Z"}
 ```
 
-### OpenClaw-Plugin installieren
+### CLI-Tool verwenden
 
-1. **Plugin lokal laden:**
+Das `cortex-cli.sh` Script bietet eine einfache CLI für alle API-Operationen:
 
-   ```bash
-   openclaw plugins install -l /home/jarvis/.openclaw/workspace/projects/cortex/plugin
-   ```
+```bash
+# Health Check
+./scripts/cortex-cli.sh health
 
-2. **Dependencies installieren** (falls nötig):
+# Memory speichern
+./scripts/cortex-cli.sh store "Der Nutzer mag Kaffee"
 
-   ```bash
-   cd plugin
-   npm install
-   ```
+# Memory-Suche
+./scripts/cortex-cli.sh query "Kaffee" 10
 
-3. **Config in `~/.openclaw/openclaw.json`:**
+# Memory löschen
+./scripts/cortex-cli.sh delete 1
+
+# Statistiken
+./scripts/cortex-cli.sh stats
+```
+
+**Umgebungsvariablen für CLI:**
+- `CORTEX_API_URL` – API Base URL (Standard: `http://localhost:9123`)
+- `CORTEX_APP_ID` – App-ID für Multi-Tenant (Standard: `openclaw`)
+- `CORTEX_USER_ID` – User-ID für Multi-Tenant (Standard: `default`)
+
+Siehe [scripts/README.md](scripts/README.md) für weitere Details.
+
+### Tests ausführen
+
+```bash
+# End-to-End-Tests
+./scripts/test-e2e.sh
+
+# Performance-Benchmark
+./scripts/benchmark.sh 50
+```
+
+### OpenClaw-Plugin (geplant)
+
+Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installation:
+
+1. **Config in `~/.openclaw/openclaw.json`:**
 
    ```json5
    {
@@ -87,7 +132,7 @@ curl http://localhost:9123/health
    }
    ```
 
-4. **Tools im Agent aktivieren:**
+2. **Tools im Agent aktivieren:**
 
    ```json5
    {
@@ -246,9 +291,9 @@ curl http://localhost:9123/stats
 }
 ```
 
-## Agent-Tools
+## Agent-Tools (geplant)
 
-Das Plugin registriert folgende Tools für OpenClaw-Agenten:
+Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 
 ### Neutron-kompatible Tools
 
@@ -265,6 +310,8 @@ Das Plugin registriert folgende Tools für OpenClaw-Agenten:
 - **`cortex_fact_get`** – Fakten für Entity abrufen
 - **`cortex_relation_add`** – Relation hinzufügen
 - **`cortex_stats`** – Statistiken abrufen
+
+**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API oder das CLI-Tool (`scripts/cortex-cli.sh`) verwendet werden.
 
 ## Datenmodell
 
@@ -333,9 +380,23 @@ Die bestehende Cortex-API (`/remember`, `/recall`, etc.) bleibt für Rückwärts
 # Go-Binary bauen
 go build -o cortex .
 
-# Plugin-Dependencies installieren
-cd plugin
-npm install
+# Oder direkt ausführen
+go run ./...
+```
+
+### Scripts verwenden
+
+Die Bash-Scripts benötigen:
+- `curl` – HTTP-Requests
+- `jq` – JSON-Verarbeitung (optional, aber empfohlen)
+
+**Installation:**
+```bash
+# Ubuntu/Debian
+sudo apt-get install curl jq
+
+# macOS
+brew install curl jq
 ```
 
 ## Troubleshooting
@@ -357,11 +418,25 @@ ls -la ~/.openclaw/cortex.db
 rm ~/.openclaw/cortex.db
 ```
 
-### Plugin wird nicht geladen
+### API nicht erreichbar
 
-1. Plugin-Pfad prüfen: `openclaw plugins list`
-2. Config validieren: `openclaw doctor`
-3. Gateway neu starten nach Config-Änderungen
+```bash
+# Prüfe ob Server läuft
+curl http://localhost:9123/health
+
+# Prüfe Logs
+# (Server-Logs werden auf stdout ausgegeben)
+```
+
+### Script-Fehler
+
+```bash
+# Prüfe Dependencies
+command -v curl && command -v jq
+
+# Prüfe API-URL
+echo $CORTEX_API_URL
+```
 
 ## Lizenz
 
