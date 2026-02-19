@@ -39,7 +39,7 @@ func TestDeliverWebhook(t *testing.T) {
 	}
 
 	data := map[string]interface{}{
-		"id":   1,
+		"id":      1,
 		"content": "test",
 	}
 

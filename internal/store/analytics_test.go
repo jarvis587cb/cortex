@@ -79,8 +79,8 @@ func TestGetGlobalAnalytics(t *testing.T) {
 	store.CreateMemory(mem)
 
 	bundle := &models.Bundle{
-		Name: "Test Bundle",
-		AppID: "app1",
+		Name:           "Test Bundle",
+		AppID:          "app1",
 		ExternalUserID: "user1",
 	}
 	store.CreateBundle(bundle)

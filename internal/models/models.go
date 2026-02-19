@@ -131,7 +131,7 @@ type TenantRequest struct {
 	ExternalUserID string `json:"externalUserId"`
 }
 
-func (r *TenantRequest) GetAppID() string        { return r.AppID }
+func (r *TenantRequest) GetAppID() string          { return r.AppID }
 func (r *TenantRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 // Neutron-compatible Seeds API Types

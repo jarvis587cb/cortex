@@ -117,7 +117,7 @@ func RateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	rateStr := os.Getenv("CORTEX_RATE_LIMIT")
 	windowStr := os.Getenv("CORTEX_RATE_LIMIT_WINDOW")
 
-	rate := 100 // Default: 100 requests
+	rate := 100               // Default: 100 requests
 	window := 1 * time.Minute // Default: 1 minute
 
 	if rateStr != "" {

@@ -13,16 +13,16 @@ import (
 
 // Constants
 const (
-	DefaultPort       = "9123"
-	DefaultDBName     = "cortex.db"
-	DefaultMemType    = "semantic"
-	DefaultImportance = 5
-	DefaultLimit      = 10
-	MaxLimit          = 100
-	DefaultQueryLimit = 5  // Default limit for query operations
-	DefaultAnalyticsDays = 30 // Default days for analytics queries
-	DefaultSimilarity = 0.5 // Default similarity score
-	TextMatchSimilarity = 0.8 // Similarity score for text matches
+	DefaultPort          = "9123"
+	DefaultDBName        = "cortex.db"
+	DefaultMemType       = "semantic"
+	DefaultImportance    = 5
+	DefaultLimit         = 10
+	MaxLimit             = 100
+	DefaultQueryLimit    = 5   // Default limit for query operations
+	DefaultAnalyticsDays = 30  // Default days for analytics queries
+	DefaultSimilarity    = 0.5 // Default similarity score
+	TextMatchSimilarity  = 0.8 // Similarity score for text matches
 )
 
 // JSON Helpers
@@ -166,12 +166,12 @@ func ValidateNotEmpty(value, fieldName string) bool {
 // Returns true if valid, false otherwise (error already written)
 func ValidateTenantParams(w http.ResponseWriter, r *http.Request, req TenantParamExtractor, isQueryParam bool) (appID, externalUserID string, ok bool) {
 	appID, externalUserID = ExtractTenantParams(r, req)
-	
+
 	fields := map[string]string{
 		"appId":          appID,
 		"externalUserId": externalUserID,
 	}
-	
+
 	if field, valid := ValidateRequired(fields); !valid {
 		msg := "missing required field: " + field
 		if isQueryParam {
@@ -180,7 +180,7 @@ func ValidateTenantParams(w http.ResponseWriter, r *http.Request, req TenantPara
 		http.Error(w, msg, http.StatusBadRequest)
 		return "", "", false
 	}
-	
+
 	return appID, externalUserID, true
 }
 
@@ -188,7 +188,7 @@ func ValidateTenantParams(w http.ResponseWriter, r *http.Request, req TenantPara
 // Returns true if valid, false otherwise (error already written)
 func ValidateTenantParamsWithFields(w http.ResponseWriter, r *http.Request, req TenantParamExtractor, additionalFields map[string]string, isQueryParam bool) (appID, externalUserID string, ok bool) {
 	appID, externalUserID = ExtractTenantParams(r, req)
-	
+
 	fields := map[string]string{
 		"appId":          appID,
 		"externalUserId": externalUserID,
@@ -196,7 +196,7 @@ func ValidateTenantParamsWithFields(w http.ResponseWriter, r *http.Request, req 
 	for k, v := range additionalFields {
 		fields[k] = v
 	}
-	
+
 	if field, valid := ValidateRequired(fields); !valid {
 		msg := "missing required field: " + field
 		if isQueryParam {
@@ -205,7 +205,7 @@ func ValidateTenantParamsWithFields(w http.ResponseWriter, r *http.Request, req 
 		http.Error(w, msg, http.StatusBadRequest)
 		return "", "", false
 	}
-	
+
 	return appID, externalUserID, true
 }
 

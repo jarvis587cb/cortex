@@ -160,7 +160,7 @@ func (s *CortexStore) BackupDatabase(backupPath string) error {
 	// Escape single quotes in path
 	escapedPath := strings.ReplaceAll(backupPath, "'", "''")
 	backupSQL := fmt.Sprintf("VACUUM INTO '%s'", escapedPath)
-	
+
 	// Use raw SQL execution
 	_, err = sqlDB.Exec(backupSQL)
 	if err != nil {

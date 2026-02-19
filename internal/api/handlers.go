@@ -54,13 +54,13 @@ func (h *Handlers) buildMemoryWebhookPayload(mem *models.Memory, appID, external
 		"app_id":           appID,
 		"external_user_id": externalUserID,
 	}
-	
+
 	if eventType == webhooks.EventMemoryCreated {
 		payload["content"] = mem.Content
 		payload["bundle_id"] = mem.BundleID
 		payload["created_at"] = mem.CreatedAt
 	}
-	
+
 	return payload
 }
 
@@ -71,12 +71,12 @@ func (h *Handlers) buildBundleWebhookPayload(bundle *models.Bundle, appID, exter
 		"app_id":           appID,
 		"external_user_id": externalUserID,
 	}
-	
+
 	if eventType == webhooks.EventBundleCreated {
 		payload["name"] = bundle.Name
 		payload["created_at"] = bundle.CreatedAt
 	}
-	
+
 	return payload
 }
 

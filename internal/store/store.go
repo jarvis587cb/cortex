@@ -105,7 +105,7 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 		"memType": memType,
 	}
 	dbQuery = s.applyOptionalFilters(dbQuery, filters)
-	
+
 	// Special handling for tags search
 	if query != "" {
 		dbQuery = dbQuery.Or("tags LIKE ?", "%"+query+"%")
@@ -401,12 +401,12 @@ func (s *CortexStore) GetWebhook(id int64) (*models.Webhook, error) {
 func (s *CortexStore) ListWebhooks(appID string) ([]models.Webhook, error) {
 	var webhooks []models.Webhook
 	dbQuery := s.db.Model(&models.Webhook{}).Where("active = ?", true)
-	
+
 	filters := map[string]interface{}{
 		"appID": appID,
 	}
 	dbQuery = s.applyOptionalFilters(dbQuery, filters)
-	
+
 	err := dbQuery.Order("created_at DESC").Find(&webhooks).Error
 	return webhooks, err
 }

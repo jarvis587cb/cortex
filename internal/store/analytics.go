@@ -9,32 +9,32 @@ import (
 
 // AnalyticsData represents analytics data for a tenant
 type AnalyticsData struct {
-	TenantID          string                 `json:"tenant_id"`
-	AppID             string                 `json:"app_id"`
-	ExternalUserID    string                 `json:"external_user_id"`
-	TotalMemories     int64                  `json:"total_memories"`
-	TotalBundles      int64                  `json:"total_bundles"`
-	MemoriesWithEmbeddings int64             `json:"memories_with_embeddings"`
-	MemoriesByType    map[string]int64        `json:"memories_by_type"`
-	MemoriesByBundle  map[int64]int64        `json:"memories_by_bundle"`
-	RecentActivity    []ActivityEntry         `json:"recent_activity"`
-	StorageStats      StorageStats            `json:"storage_stats"`
-	TimeRange         TimeRange               `json:"time_range"`
+	TenantID               string           `json:"tenant_id"`
+	AppID                  string           `json:"app_id"`
+	ExternalUserID         string           `json:"external_user_id"`
+	TotalMemories          int64            `json:"total_memories"`
+	TotalBundles           int64            `json:"total_bundles"`
+	MemoriesWithEmbeddings int64            `json:"memories_with_embeddings"`
+	MemoriesByType         map[string]int64 `json:"memories_by_type"`
+	MemoriesByBundle       map[int64]int64  `json:"memories_by_bundle"`
+	RecentActivity         []ActivityEntry  `json:"recent_activity"`
+	StorageStats           StorageStats     `json:"storage_stats"`
+	TimeRange              TimeRange        `json:"time_range"`
 }
 
 // ActivityEntry represents a recent activity entry
 type ActivityEntry struct {
-	Type      string    `json:"type"`      // "memory.created", "bundle.created", etc.
+	Type      string    `json:"type"` // "memory.created", "bundle.created", etc.
 	ID        int64     `json:"id"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
 // StorageStats represents storage statistics
 type StorageStats struct {
-	TotalSize      int64 `json:"total_size"`       // Approximate database size
-	MemoriesCount  int64 `json:"memories_count"`
-	BundlesCount   int64 `json:"bundles_count"`
-	WebhooksCount  int64 `json:"webhooks_count"`
+	TotalSize     int64 `json:"total_size"` // Approximate database size
+	MemoriesCount int64 `json:"memories_count"`
+	BundlesCount  int64 `json:"bundles_count"`
+	WebhooksCount int64 `json:"webhooks_count"`
 }
 
 // TimeRange represents a time range for analytics
@@ -54,8 +54,8 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 
 	// Total memories, bundles, and memories with embeddings (combined query)
 	var counts struct {
-		TotalMemories         int64 `gorm:"column:total_memories"`
-		TotalBundles          int64 `gorm:"column:total_bundles"`
+		TotalMemories          int64 `gorm:"column:total_memories"`
+		TotalBundles           int64 `gorm:"column:total_bundles"`
 		MemoriesWithEmbeddings int64 `gorm:"column:memories_with_embeddings"`
 	}
 
@@ -157,16 +157,16 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 	}
 
 	return &AnalyticsData{
-		TenantID:             appID + ":" + externalUserID,
-		AppID:                appID,
-		ExternalUserID:       externalUserID,
-		TotalMemories:        counts.TotalMemories,
-		TotalBundles:         counts.TotalBundles,
+		TenantID:               appID + ":" + externalUserID,
+		AppID:                  appID,
+		ExternalUserID:         externalUserID,
+		TotalMemories:          counts.TotalMemories,
+		TotalBundles:           counts.TotalBundles,
 		MemoriesWithEmbeddings: counts.MemoriesWithEmbeddings,
-		MemoriesByType:       typeCounts,
-		MemoriesByBundle:     bundleCounts,
-		RecentActivity:       activities,
-		StorageStats:         storageStats,
+		MemoriesByType:         typeCounts,
+		MemoriesByBundle:       bundleCounts,
+		RecentActivity:         activities,
+		StorageStats:           storageStats,
 		TimeRange: TimeRange{
 			Start: startTime,
 			End:   endTime,
@@ -185,10 +185,10 @@ func (s *CortexStore) GetGlobalAnalytics(days int) (*AnalyticsData, error) {
 
 	// Combined COUNT queries for global analytics
 	var counts struct {
-		TotalMemories         int64 `gorm:"column:total_memories"`
-		TotalBundles          int64 `gorm:"column:total_bundles"`
+		TotalMemories          int64 `gorm:"column:total_memories"`
+		TotalBundles           int64 `gorm:"column:total_bundles"`
 		MemoriesWithEmbeddings int64 `gorm:"column:memories_with_embeddings"`
-		WebhooksCount         int64 `gorm:"column:webhooks_count"`
+		WebhooksCount          int64 `gorm:"column:webhooks_count"`
 	}
 
 	err := s.db.Raw(`
@@ -210,16 +210,16 @@ func (s *CortexStore) GetGlobalAnalytics(days int) (*AnalyticsData, error) {
 	}
 
 	return &AnalyticsData{
-		TenantID:             "global",
-		AppID:                "",
-		ExternalUserID:       "",
-		TotalMemories:        counts.TotalMemories,
-		TotalBundles:         counts.TotalBundles,
+		TenantID:               "global",
+		AppID:                  "",
+		ExternalUserID:         "",
+		TotalMemories:          counts.TotalMemories,
+		TotalBundles:           counts.TotalBundles,
 		MemoriesWithEmbeddings: counts.MemoriesWithEmbeddings,
-		MemoriesByType:       make(map[string]int64),
-		MemoriesByBundle:     make(map[int64]int64),
-		RecentActivity:       []ActivityEntry{},
-		StorageStats:         storageStats,
+		MemoriesByType:         make(map[string]int64),
+		MemoriesByBundle:       make(map[int64]int64),
+		RecentActivity:         []ActivityEntry{},
+		StorageStats:           storageStats,
 		TimeRange: TimeRange{
 			Start: startTime,
 			End:   endTime,
