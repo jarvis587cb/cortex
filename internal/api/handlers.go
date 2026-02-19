@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
 	"cortex/internal/models"
 	"cortex/internal/store"
@@ -64,6 +65,13 @@ func (h *Handlers) HandleRemember(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+
+	// Generiere Embedding asynchron (nicht-blockierend)
+	go func() {
+		if err := h.store.GenerateEmbeddingForMemory(&mem); err != nil {
+			slog.Warn("failed to generate embedding", "error", err, "memoryId", mem.ID)
+		}
+	}()
 
 	helpers.WriteJSON(w, http.StatusOK, models.RememberResponse{ID: mem.ID})
 }
@@ -255,6 +263,13 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generiere Embedding asynchron (nicht-blockierend)
+	go func() {
+		if err := h.store.GenerateEmbeddingForMemory(&mem); err != nil {
+			slog.Warn("failed to generate embedding", "error", err, "memoryId", mem.ID)
+		}
+	}()
+
 	helpers.WriteJSON(w, http.StatusOK, models.StoreSeedResponse{
 		ID:      mem.ID,
 		Message: "Memory stored successfully",
@@ -283,20 +298,41 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		limit = 5
 	}
 
-	memories, err := h.store.SearchMemoriesByTenant(req.AppID, req.ExternalUserID, req.Query, limit)
+	// Versuche semantische Suche, fallback zu Textsuche
+	memories, err := h.store.SearchMemoriesByTenantSemantic(req.AppID, req.ExternalUserID, req.Query, limit)
 	if err != nil {
-		slog.Error("query seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID, "query", req.Query)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		// Fallback zu Textsuche
+		memories, err = h.store.SearchMemoriesByTenant(req.AppID, req.ExternalUserID, req.Query, limit)
+		if err != nil {
+			slog.Error("query seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID, "query", req.Query)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Generiere Query-Embedding für Similarity-Berechnung
+	embeddingService := embeddings.GetEmbeddingService()
+	queryEmbedding, err := embeddingService.GenerateEmbedding(req.Query, "text/plain")
+	if err != nil {
+		slog.Warn("failed to generate query embedding, using text similarity", "error", err)
 	}
 
 	results := make([]models.QuerySeedResult, 0, len(memories))
 	for _, mem := range memories {
 		metadata := helpers.UnmarshalMetadata(mem.Metadata)
 
-		similarity := 0.8
-		if strings.Contains(strings.ToLower(mem.Content), strings.ToLower(req.Query)) {
-			similarity = 0.95
+		// Berechne echte Similarity wenn möglich
+		similarity := 0.5 // Default
+		if queryEmbedding != nil && mem.Embedding != "" {
+			memEmbedding, err := embeddings.DecodeVector(mem.Embedding)
+			if err == nil {
+				similarity = embeddings.CosineSimilarity(queryEmbedding, memEmbedding)
+			}
+		} else {
+			// Fallback: Text-basierte Similarity
+			if strings.Contains(strings.ToLower(mem.Content), strings.ToLower(req.Query)) {
+				similarity = 0.8
+			}
 		}
 
 		results = append(results, models.QuerySeedResult{
@@ -309,6 +345,26 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	helpers.WriteJSON(w, http.StatusOK, results)
+}
+
+// HandleGenerateEmbeddings generiert Embeddings für alle Memories ohne Embedding
+func (h *Handlers) HandleGenerateEmbeddings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	batchSize := helpers.ParseLimit(helpers.GetQueryParam(r, "batchSize"), 10, 100)
+
+	if err := h.store.BatchGenerateEmbeddings(batchSize); err != nil {
+		slog.Error("batch generate embeddings error", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, map[string]string{
+		"message": "Embeddings generation started",
+	})
 }
 
 func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {

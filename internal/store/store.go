@@ -8,6 +8,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
+	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
 	"cortex/internal/models"
 )
@@ -82,6 +83,127 @@ func (s *CortexStore) SearchMemoriesByTenant(appID, externalUserID, query string
 
 	err := dbQuery.Order("created_at DESC").Limit(limit).Find(&memories).Error
 	return memories, err
+}
+
+// SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
+func (s *CortexStore) SearchMemoriesByTenantSemantic(appID, externalUserID, query string, limit int) ([]models.Memory, error) {
+	// Generiere Embedding für Query
+	embeddingService := embeddings.GetEmbeddingService()
+	queryEmbedding, err := embeddingService.GenerateEmbedding(query, "text/plain")
+	if err != nil {
+		// Fallback zu Textsuche bei Fehler
+		return s.SearchMemoriesByTenant(appID, externalUserID, query, limit)
+	}
+
+	if queryEmbedding == nil {
+		// Fallback zu Textsuche wenn kein Embedding generiert werden konnte
+		return s.SearchMemoriesByTenant(appID, externalUserID, query, limit)
+	}
+
+	// Hole alle Memories für diesen Tenant
+	var allMemories []models.Memory
+	err = s.db.Model(&models.Memory{}).
+		Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
+		Find(&allMemories).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Berechne Similarity für jedes Memory
+	type memoryWithSimilarity struct {
+		memory     models.Memory
+		similarity float64
+	}
+
+	results := make([]memoryWithSimilarity, 0, len(allMemories))
+	for _, mem := range allMemories {
+		if mem.Embedding == "" {
+			// Skip Memories ohne Embedding (können später generiert werden)
+			continue
+		}
+
+		memEmbedding, err := embeddings.DecodeVector(mem.Embedding)
+		if err != nil {
+			continue
+		}
+
+		similarity := embeddings.CosineSimilarity(queryEmbedding, memEmbedding)
+		results = append(results, memoryWithSimilarity{
+			memory:     mem,
+			similarity: similarity,
+		})
+	}
+
+	// Sortiere nach Similarity (höchste zuerst)
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[i].similarity < results[j].similarity {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+
+	// Limitiere Ergebnisse
+	if limit > len(results) {
+		limit = len(results)
+	}
+
+	memories := make([]models.Memory, limit)
+	for i := 0; i < limit; i++ {
+		memories[i] = results[i].memory
+	}
+
+	return memories, nil
+}
+
+// GenerateEmbeddingForMemory generiert ein Embedding für ein Memory
+func (s *CortexStore) GenerateEmbeddingForMemory(mem *models.Memory) error {
+	embeddingService := embeddings.GetEmbeddingService()
+
+	// Bestimme Content-Type
+	metadata := helpers.UnmarshalMetadata(mem.Metadata)
+	contentType := embeddings.DetectContentType(mem.Content, metadata)
+
+	// Generiere Embedding
+	embedding, err := embeddingService.GenerateEmbedding(mem.Content, contentType)
+	if err != nil {
+		return err
+	}
+
+	// Speichere Embedding
+	embeddingJSON, err := embeddings.EncodeVector(embedding)
+	if err != nil {
+		return err
+	}
+
+	mem.Embedding = embeddingJSON
+	mem.ContentType = contentType
+
+	return s.db.Save(mem).Error
+}
+
+// BatchGenerateEmbeddings generiert Embeddings für alle Memories ohne Embedding
+func (s *CortexStore) BatchGenerateEmbeddings(batchSize int) error {
+	if batchSize <= 0 {
+		batchSize = 10
+	}
+
+	var memories []models.Memory
+	err := s.db.Where("embedding = '' OR embedding IS NULL").
+		Limit(batchSize).
+		Find(&memories).Error
+	if err != nil {
+		return err
+	}
+
+	for i := range memories {
+		if err := s.GenerateEmbeddingForMemory(&memories[i]); err != nil {
+			// Logge Fehler, aber fahre fort
+			continue
+		}
+	}
+
+	return nil
 }
 
 func (s *CortexStore) GetMemoryByID(id int64) (*models.Memory, error) {

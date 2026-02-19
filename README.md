@@ -5,11 +5,27 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 ## Features
 
 - ✅ **Persistente Speicherung**: Erinnerungen, Fakten und Relationen in SQLite
+- ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
+- ✅ **Multimodal-Support**: Unterstützung für Text, Bilder und Dokumente
+- ✅ **Jina API Integration**: Nutzung von Jina v4 Embeddings (wie Neutron)
+- ✅ **Fallback-Lösung**: Lokaler Embedding-Service wenn keine API verfügbar
 - ✅ **Multi-Tenant-Support**: Isolation durch `appId` + `externalUserId`
-- ✅ **Neutron-kompatibel**: Gleiche API-Formate wie neutron-local (ohne Embeddings)
+- ✅ **Neutron-kompatibel**: Gleiche API-Formate wie neutron-local
 - ✅ **Leichtgewichtig**: Pure-Go (kein cgo), keine externen Dependencies außer SQLite
 - ✅ **REST-API**: Einfache HTTP-Endpunkte für alle Operationen
 - ✅ **OpenClaw-Integration**: TypeScript-Plugin mit Agent-Tools
+
+## Features
+
+- ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
+- ✅ **Multimodal-Support**: Unterstützung für Text, Bilder und Dokumente
+- ✅ **Jina API Integration**: Nutzung von Jina v4 Embeddings (wie Neutron)
+- ✅ **Fallback-Lösung**: Lokaler Embedding-Service wenn keine API verfügbar
+- ✅ **Neutron-kompatible API**: Seeds-API für einfache Integration
+- ✅ **Multi-Tenant**: Isolation von Daten nach `appId` und `externalUserId`
+- ✅ **REST API**: Vollständige HTTP-API für alle Operationen
+- ✅ **SQLite**: Leichtgewichtige, embedded Datenbank
+- ✅ **Docker Support**: Containerisierung für einfache Deployment
 
 ## Architektur
 
@@ -29,6 +45,7 @@ Cortex besteht aus folgenden Komponenten:
   - `internal/api/` – HTTP-Handler
   - `internal/helpers/` – Utility-Funktionen
   - `internal/middleware/` – HTTP-Middleware
+  - `internal/embeddings/` – Embedding-Generierung und semantische Suche
 
 ### 2. Scripts (`scripts/`)
 
@@ -65,6 +82,8 @@ go run ./...
 - `CORTEX_PORT` – Port (Standard: `9123`)
 - `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
+- `JINA_API_KEY` – API-Key für Jina Embeddings (optional, für semantische Suche)
+- `JINA_API_URL` – URL für Jina API (Standard: `https://api.jina.ai/v1/embeddings`)
 
 **Health-Check:**
 
@@ -156,6 +175,79 @@ Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installatio
    }
    ```
 
+## Embeddings & Semantische Suche
+
+Cortex unterstützt semantische Suche mit Embeddings für bessere Suchergebnisse:
+
+### Konfiguration
+
+**Mit Jina API (empfohlen):**
+```bash
+export JINA_API_KEY="dein-jina-api-key"
+export JINA_API_URL="https://api.jina.ai/v1/embeddings"  # Optional
+```
+
+**Ohne API (Fallback):**
+Cortex verwendet automatisch einen lokalen Embedding-Service als Fallback.
+
+### Automatische Embedding-Generierung
+
+Beim Speichern von Memories werden automatisch Embeddings generiert (asynchron):
+
+```bash
+# Memory speichern - Embedding wird automatisch generiert
+curl -X POST http://localhost:9123/seeds \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "appId": "myapp",
+    "externalUserId": "user123",
+    "content": "Der Benutzer mag Kaffee und liest gerne Bücher",
+    "metadata": {"source": "chat"}
+  }'
+```
+
+### Batch-Embedding-Generierung
+
+Für bestehende Memories ohne Embeddings:
+
+```bash
+# Generiere Embeddings für bis zu 10 Memories
+curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
+  -H "X-API-Key: dein-key"
+```
+
+### Semantische Suche
+
+Die Query-API nutzt automatisch semantische Suche wenn Embeddings verfügbar sind:
+
+```bash
+curl -X POST http://localhost:9123/seeds/query \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dein-key" \
+  -d '{
+    "appId": "myapp",
+    "externalUserId": "user123",
+    "query": "Was mag der Benutzer trinken?",
+    "limit": 5
+  }'
+```
+
+Die Antwort enthält `similarity`-Scores (0.0-1.0) basierend auf Cosine-Similarity.
+
+### Multimodal-Support
+
+Cortex erkennt automatisch verschiedene Content-Types:
+
+- **Text**: Standard-Text-Embeddings
+- **Bilder**: Multimodal-Embeddings (wenn Jina API verfügbar)
+- **Dokumente**: PDF- und Dokument-Embeddings
+
+Content-Type wird automatisch erkannt aus:
+- Metadata (`contentType` oder `content_type`)
+- Base64-encoded Bilder (`data:image/...`)
+- URLs mit Dateiendungen (`.jpg`, `.png`, `.pdf`)
+
 ## API-Endpunkte
 
 ### Neutron-kompatible Seeds-API
@@ -209,7 +301,23 @@ curl -X POST http://localhost:9123/seeds/query \
 ]
 ```
 
-**Hinweis:** `similarity` ist eine Heuristik (0.8-1.0), da keine echten Embeddings verwendet werden.
+**Hinweis:** `similarity` wird basierend auf Cosine-Similarity der Embeddings berechnet (0.0-1.0). Wenn keine Embeddings verfügbar sind, wird eine Text-basierte Heuristik verwendet.
+
+#### `POST /seeds/generate-embeddings` – Embeddings generieren
+
+```bash
+curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
+  -H "X-API-Key: dein-key"
+```
+
+Generiert Embeddings für bestehende Memories ohne Embedding. `batchSize` bestimmt, wie viele Memories pro Aufruf verarbeitet werden (Standard: 10, Max: 100).
+
+**Response:**
+```json
+{
+  "message": "Embeddings generation started"
+}
+```
 
 #### `DELETE /seeds/:id` – Memory löschen
 

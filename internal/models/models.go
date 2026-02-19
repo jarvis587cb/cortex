@@ -15,6 +15,8 @@ type Memory struct {
 	ExternalUserID string         `gorm:"column:external_user_id;not null;default:'default';index" json:"external_user_id,omitempty"`
 	Metadata       string         `gorm:"type:text" json:"-"`
 	MetadataMap    map[string]any `gorm:"-" json:"metadata,omitempty"`
+	Embedding      string         `gorm:"type:text" json:"-"` // JSON-encoded []float32
+	ContentType    string         `gorm:"column:content_type;default:'text/plain'" json:"content_type,omitempty"`
 	CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 

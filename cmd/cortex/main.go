@@ -50,6 +50,7 @@ func main() {
 	// Neutron-compatible Seeds API
 	mux.HandleFunc("/seeds", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStoreSeed, http.MethodPost)))
 	mux.HandleFunc("/seeds/query", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleQuerySeed, http.MethodPost)))
+	mux.HandleFunc("/seeds/generate-embeddings", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost)))
 	mux.HandleFunc("/seeds/", middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete)))
 
 	// Cortex API
