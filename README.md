@@ -63,6 +63,8 @@ go run ./...
 
 - `CORTEX_DB_PATH` – Pfad zur SQLite-Datei (Standard: `~/.openclaw/cortex.db`)
 - `CORTEX_PORT` – Port (Standard: `9123`)
+- `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
+- `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
 
 **Health-Check:**
 
@@ -374,6 +376,56 @@ Die bestehende Cortex-API (`/remember`, `/recall`, etc.) bleibt für Rückwärts
 - `@sinclair/typebox` – Schema-Validierung
 - `@types/node` – Node.js-Typen
 
+### Tests
+
+Das Projekt enthält umfassende Unit-Tests:
+
+```bash
+# Alle Tests ausführen
+go test ./...
+
+# Mit Verbose-Output
+go test -v ./...
+
+# Mit Coverage-Report
+go test -cover ./...
+```
+
+### Authentifizierung
+
+Cortex unterstützt optionale API-Key-Authentifizierung:
+
+- **Ohne API-Key:** Alle Endpunkte sind öffentlich (Development-Modus)
+- **Mit API-Key:** Alle Endpunkte außer `/health` erfordern Authentifizierung
+
+**Verwendung:**
+
+```bash
+# Server mit API-Key starten
+CORTEX_API_KEY=your-secret-key go run ./...
+
+# API-Requests mit API-Key
+curl -H "Authorization: Bearer your-secret-key" \
+  http://localhost:9123/seeds \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"appId":"test","externalUserId":"user1","content":"Test"}'
+```
+
+### Logging
+
+Cortex verwendet strukturiertes Logging (log/slog):
+
+- **Log-Level:** Über `CORTEX_LOG_LEVEL` konfigurierbar (debug, info, warn, error)
+- **Strukturiert:** Alle Logs enthalten strukturierte Felder für besseres Parsing
+- **Format:** Text-Format (kann zu JSON geändert werden)
+
+**Beispiel-Logs:**
+```
+level=INFO msg="cortex server starting" addr=:9123 db=/path/to/cortex.db
+level=DEBUG msg="authenticated request" path=/seeds method=POST
+level=ERROR msg="remember insert error" error="..."
+```
+
 ### Build
 
 ```bash
@@ -382,6 +434,29 @@ go build -o cortex .
 
 # Oder direkt ausführen
 go run ./...
+
+# Tests ausführen
+go test ./...
+
+# Tests mit Coverage
+go test -cover ./...
+```
+
+### Docker
+
+```bash
+# Docker Image bauen
+docker build -t cortex .
+
+# Mit docker-compose starten
+docker-compose up -d
+
+# Oder direkt mit Docker
+docker run -d \
+  -p 9123:9123 \
+  -e CORTEX_API_KEY=your-secret-key \
+  -v cortex-data:/data \
+  cortex
 ```
 
 ### Scripts verwenden

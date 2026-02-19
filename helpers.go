@@ -53,8 +53,11 @@ func parseLimit(limitStr string, defaultLimit, maxLimit int) int {
 
 func parseID(idStr string) (int64, error) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
+	if err != nil {
 		return 0, err
+	}
+	if id <= 0 {
+		return 0, &validationError{field: "id", message: "id must be positive"}
 	}
 	return id, nil
 }
@@ -129,7 +132,9 @@ func extractPathID(path, prefix string) (string, error) {
 	if idStr == "" || idStr == path {
 		return "", errMissingID
 	}
+	// Split on "/" and "?" to handle query parameters
 	idStr = strings.Split(idStr, "/")[0]
+	idStr = strings.Split(idStr, "?")[0]
 	if idStr == "" {
 		return "", errMissingID
 	}

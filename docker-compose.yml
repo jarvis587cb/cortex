@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  cortex:
+    build: .
+    container_name: cortex
+    ports:
+      - "9123:9123"
+    environment:
+      - CORTEX_PORT=9123
+      - CORTEX_DB_PATH=/data/cortex.db
+    volumes:
+      - cortex-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  cortex-data:

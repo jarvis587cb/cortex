@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -48,7 +48,7 @@ func (s *CortexStore) handleRemember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.CreateMemory(&mem); err != nil {
-		log.Printf("remember insert error: %v", err)
+		slog.Error("remember insert error", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +63,7 @@ func (s *CortexStore) handleRecall(w http.ResponseWriter, r *http.Request) {
 
 	memories, err := s.SearchMemories(query, memType, limit)
 	if err != nil {
-		log.Printf("recall query error: %v", err)
+		slog.Error("recall query error", "error", err, "query", query)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -95,7 +95,7 @@ func (s *CortexStore) handleSetFact(w http.ResponseWriter, r *http.Request) {
 	if err == nil && ent.Data != "" {
 		data = unmarshalEntityData(ent.Data)
 	} else if err != nil && err != gorm.ErrRecordNotFound {
-		log.Printf("get entity error: %v", err)
+		slog.Error("get entity error", "error", err, "entity", entity)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -108,7 +108,7 @@ func (s *CortexStore) handleSetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.CreateOrUpdateEntity(ent); err != nil {
-		log.Printf("set fact error: %v", err)
+		slog.Error("set fact error", "error", err, "entity", entity)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -129,7 +129,7 @@ func (s *CortexStore) handleGetEntity(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("get entity error: %v", err)
+		slog.Error("get entity error", "error", err, "name", name)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -141,7 +141,7 @@ func (s *CortexStore) handleGetEntity(w http.ResponseWriter, r *http.Request) {
 func (s *CortexStore) handleListEntities(w http.ResponseWriter, r *http.Request) {
 	entities, err := s.ListEntities()
 	if err != nil {
-		log.Printf("list entities error: %v", err)
+		slog.Error("list entities error", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -169,7 +169,7 @@ func (s *CortexStore) handleAddRelation(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := s.CreateOrUpdateRelation(&rel); err != nil {
-		log.Printf("add relation error: %v", err)
+		slog.Error("add relation error", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -181,7 +181,7 @@ func (s *CortexStore) handleListRelations(w http.ResponseWriter, r *http.Request
 	entity := getQueryParam(r, "entity")
 	relations, err := s.GetRelations(entity)
 	if err != nil {
-		log.Printf("list relations error: %v", err)
+		slog.Error("list relations error", "error", err, "entity", entity)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -192,7 +192,7 @@ func (s *CortexStore) handleListRelations(w http.ResponseWriter, r *http.Request
 func (s *CortexStore) handleStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := s.GetStats()
 	if err != nil {
-		log.Printf("stats error: %v", err)
+		slog.Error("stats error", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -229,7 +229,7 @@ func (s *CortexStore) handleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.CreateMemory(&mem); err != nil {
-		log.Printf("store seed error: %v", err)
+		slog.Error("store seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -264,7 +264,7 @@ func (s *CortexStore) handleQuerySeed(w http.ResponseWriter, r *http.Request) {
 
 	memories, err := s.SearchMemoriesByTenant(req.AppID, req.ExternalUserID, req.Query, limit)
 	if err != nil {
-		log.Printf("query seed error: %v", err)
+		slog.Error("query seed error", "error", err, "appId", req.AppID, "userId", req.ExternalUserID, "query", req.Query)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -321,13 +321,13 @@ func (s *CortexStore) handleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Memory not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("delete seed error: %v", err)
+		slog.Error("delete seed error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DeleteMemory(mem); err != nil {
-		log.Printf("delete seed error: %v", err)
+		slog.Error("delete seed error", "error", err, "id", mem.ID)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
