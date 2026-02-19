@@ -20,6 +20,8 @@ const (
 	MaxLimit          = 100
 	DefaultQueryLimit = 5  // Default limit for query operations
 	DefaultAnalyticsDays = 30 // Default days for analytics queries
+	DefaultSimilarity = 0.5 // Default similarity score
+	TextMatchSimilarity = 0.8 // Similarity score for text matches
 )
 
 // JSON Helpers
@@ -99,6 +101,34 @@ func IsNotFoundError(err error) bool {
 func HandleInternalError(w http.ResponseWriter, logger func(msg string, args ...any), msg string, args ...any) {
 	logger(msg, args...)
 	http.Error(w, "internal error", http.StatusInternalServerError)
+}
+
+// ExtractAndParseID extracts ID from path and parses it to int64
+// Returns the parsed ID or writes error response and returns false
+func ExtractAndParseID(w http.ResponseWriter, path, prefix string) (int64, bool) {
+	idStr, err := ExtractPathID(path, prefix)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return 0, false
+	}
+
+	id, err := ParseID(idStr)
+	if err != nil {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return 0, false
+	}
+
+	return id, true
+}
+
+// HandleNotFoundError handles not found errors consistently
+// Returns true if error was handled (not found), false otherwise
+func HandleNotFoundError(w http.ResponseWriter, err error, resourceName string) bool {
+	if IsNotFoundError(err) {
+		http.Error(w, resourceName+" not found", http.StatusNotFound)
+		return true
+	}
+	return false
 }
 
 // ValidateTenantParams validates tenant parameters and writes error response if invalid

@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Database Models
 
@@ -151,6 +154,17 @@ type BundleResponse struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+// ToBundleResponse converts a Bundle model to BundleResponse
+func (b *Bundle) ToBundleResponse() BundleResponse {
+	return BundleResponse{
+		ID:             b.ID,
+		Name:           b.Name,
+		AppID:          b.AppID,
+		ExternalUserID: b.ExternalUserID,
+		CreatedAt:      b.CreatedAt,
+	}
+}
+
 // Webhook API Types
 
 type CreateWebhookRequest struct {
@@ -168,4 +182,24 @@ type WebhookResponse struct {
 	Active    bool      `json:"active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ToWebhookResponse converts a Webhook model to WebhookResponse
+// eventsStr should be the comma-separated events string from the model
+func (w *Webhook) ToWebhookResponse(eventsStr string) WebhookResponse {
+	events := make([]string, 0)
+	if eventsStr != "" {
+		for _, e := range strings.Split(eventsStr, ",") {
+			events = append(events, strings.TrimSpace(e))
+		}
+	}
+	return WebhookResponse{
+		ID:        w.ID,
+		URL:       w.URL,
+		Events:    events,
+		AppID:     w.AppID,
+		Active:    w.Active,
+		CreatedAt: w.CreatedAt,
+		UpdatedAt: w.UpdatedAt,
+	}
 }

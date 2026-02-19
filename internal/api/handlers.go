@@ -23,6 +23,15 @@ func NewHandlers(s *store.CortexStore) *Handlers {
 	return &Handlers{store: s}
 }
 
+// generateEmbeddingAsync generates embedding for a memory asynchronously
+func (h *Handlers) generateEmbeddingAsync(mem *models.Memory) {
+	go func() {
+		if err := h.store.GenerateEmbeddingForMemory(mem); err != nil {
+			slog.Warn("failed to generate embedding", "error", err, "memoryId", mem.ID)
+		}
+	}()
+}
+
 // Health Check
 
 func (h *Handlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -68,11 +77,7 @@ func (h *Handlers) HandleRemember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generiere Embedding asynchron (nicht-blockierend)
-	go func() {
-		if err := h.store.GenerateEmbeddingForMemory(&mem); err != nil {
-			slog.Warn("failed to generate embedding", "error", err, "memoryId", mem.ID)
-		}
-	}()
+	h.generateEmbeddingAsync(&mem)
 
 	helpers.WriteJSON(w, http.StatusOK, models.RememberResponse{ID: mem.ID})
 }
@@ -152,8 +157,7 @@ func (h *Handlers) HandleGetEntity(w http.ResponseWriter, r *http.Request) {
 
 	ent, err := h.store.GetEntity(name)
 	if err != nil {
-		if helpers.IsNotFoundError(err) {
-			http.Error(w, "not found", http.StatusNotFound)
+		if helpers.HandleNotFoundError(w, err, "Entity") {
 			return
 		}
 		slog.Error("get entity error", "error", err, "name", name)
@@ -269,11 +273,7 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generiere Embedding asynchron (nicht-blockierend)
-	go func() {
-		if err := h.store.GenerateEmbeddingForMemory(&mem); err != nil {
-			slog.Warn("failed to generate embedding", "error", err, "memoryId", mem.ID)
-		}
-	}()
+	h.generateEmbeddingAsync(&mem)
 
 	// Trigger webhook asynchron
 	go h.triggerWebhook(webhooks.EventMemoryCreated, map[string]interface{}{
@@ -340,7 +340,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		metadata := helpers.UnmarshalMetadata(mem.Metadata)
 
 		// Berechne echte Similarity wenn möglich
-		similarity := 0.5 // Default
+		similarity := helpers.DefaultSimilarity
 		if queryEmbedding != nil && mem.Embedding != "" {
 			memEmbedding, err := embeddings.DecodeVector(mem.Embedding)
 			if err == nil {
@@ -349,7 +349,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Fallback: Text-basierte Similarity
 			if strings.Contains(strings.ToLower(mem.Content), strings.ToLower(req.Query)) {
-				similarity = 0.8
+				similarity = helpers.TextMatchSimilarity
 			}
 		}
 
@@ -386,15 +386,8 @@ func (h *Handlers) HandleGenerateEmbeddings(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
-	idStr, err := helpers.ExtractPathID(r.URL.Path, "/seeds/")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	id, err := helpers.ParseID(idStr)
-	if err != nil {
-		http.Error(w, "invalid id format", http.StatusBadRequest)
+	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/seeds/")
+	if !ok {
 		return
 	}
 
@@ -411,8 +404,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 
 	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID)
 	if err != nil {
-		if helpers.IsNotFoundError(err) {
-			http.Error(w, "Memory not found", http.StatusNotFound)
+		if helpers.HandleNotFoundError(w, err, "Memory") {
 			return
 		}
 		slog.Error("delete seed error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
@@ -482,13 +474,7 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 		"created_at":       bundle.CreatedAt,
 	})
 
-	helpers.WriteJSON(w, http.StatusOK, models.BundleResponse{
-		ID:             bundle.ID,
-		Name:           bundle.Name,
-		AppID:          bundle.AppID,
-		ExternalUserID: bundle.ExternalUserID,
-		CreatedAt:      bundle.CreatedAt,
-	})
+	helpers.WriteJSON(w, http.StatusOK, bundle.ToBundleResponse())
 }
 
 func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
@@ -511,29 +497,16 @@ func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses := make([]models.BundleResponse, len(bundles))
-	for i, bundle := range bundles {
-		responses[i] = models.BundleResponse{
-			ID:             bundle.ID,
-			Name:           bundle.Name,
-			AppID:          bundle.AppID,
-			ExternalUserID: bundle.ExternalUserID,
-			CreatedAt:      bundle.CreatedAt,
-		}
+	for i := range bundles {
+		responses[i] = bundles[i].ToBundleResponse()
 	}
 
 	helpers.WriteJSON(w, http.StatusOK, responses)
 }
 
 func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
-	idStr, err := helpers.ExtractPathID(r.URL.Path, "/bundles/")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	id, err := helpers.ParseID(idStr)
-	if err != nil {
-		http.Error(w, "invalid id format", http.StatusBadRequest)
+	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/bundles/")
+	if !ok {
 		return
 	}
 
@@ -550,8 +523,7 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 
 	bundle, err := h.store.GetBundle(id, appID, externalUserID)
 	if err != nil {
-		if helpers.IsNotFoundError(err) {
-			http.Error(w, "Bundle not found", http.StatusNotFound)
+		if helpers.HandleNotFoundError(w, err, "Bundle") {
 			return
 		}
 		slog.Error("get bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
@@ -559,25 +531,12 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, models.BundleResponse{
-		ID:             bundle.ID,
-		Name:           bundle.Name,
-		AppID:          bundle.AppID,
-		ExternalUserID: bundle.ExternalUserID,
-		CreatedAt:      bundle.CreatedAt,
-	})
+	helpers.WriteJSON(w, http.StatusOK, bundle.ToBundleResponse())
 }
 
 func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
-	idStr, err := helpers.ExtractPathID(r.URL.Path, "/bundles/")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	id, err := helpers.ParseID(idStr)
-	if err != nil {
-		http.Error(w, "invalid id format", http.StatusBadRequest)
+	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/bundles/")
+	if !ok {
 		return
 	}
 
@@ -593,8 +552,7 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.DeleteBundle(id, appID, externalUserID); err != nil {
-		if helpers.IsNotFoundError(err) {
-			http.Error(w, "Bundle not found", http.StatusNotFound)
+		if helpers.HandleNotFoundError(w, err, "Bundle") {
 			return
 		}
 		slog.Error("delete bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
@@ -648,15 +606,7 @@ func (h *Handlers) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, models.WebhookResponse{
-		ID:        webhook.ID,
-		URL:       webhook.URL,
-		Events:    req.Events,
-		AppID:     webhook.AppID,
-		Active:    webhook.Active,
-		CreatedAt: webhook.CreatedAt,
-		UpdatedAt: webhook.UpdatedAt,
-	})
+	helpers.WriteJSON(w, http.StatusOK, webhook.ToWebhookResponse(strings.Join(req.Events, ",")))
 }
 
 func (h *Handlers) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
@@ -670,38 +620,21 @@ func (h *Handlers) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses := make([]models.WebhookResponse, len(webhookList))
-	for i, wh := range webhookList {
-		events := strings.Split(wh.Events, ",")
-		responses[i] = models.WebhookResponse{
-			ID:        wh.ID,
-			URL:       wh.URL,
-			Events:    events,
-			AppID:     wh.AppID,
-			Active:    wh.Active,
-			CreatedAt: wh.CreatedAt,
-			UpdatedAt: wh.UpdatedAt,
-		}
+	for i := range webhookList {
+		responses[i] = webhookList[i].ToWebhookResponse(webhookList[i].Events)
 	}
 
 	helpers.WriteJSON(w, http.StatusOK, responses)
 }
 
 func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
-	idStr, err := helpers.ExtractPathID(r.URL.Path, "/webhooks/")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	id, err := helpers.ParseID(idStr)
-	if err != nil {
-		http.Error(w, "invalid id format", http.StatusBadRequest)
+	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/webhooks/")
+	if !ok {
 		return
 	}
 
 	if err := h.store.DeleteWebhook(id); err != nil {
-		if helpers.IsNotFoundError(err) {
-			http.Error(w, "Webhook not found", http.StatusNotFound)
+		if helpers.HandleNotFoundError(w, err, "Webhook") {
 			return
 		}
 		slog.Error("delete webhook error", "error", err, "id", id)
