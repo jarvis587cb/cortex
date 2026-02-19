@@ -58,6 +58,10 @@ export interface CortexClientConfig {
   externalUserId?: string;
 }
 
+export interface GenerateEmbeddingsResponse {
+  message: string;
+}
+
 export class CortexError extends Error {
   constructor(
     message: string,

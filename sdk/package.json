@@ -6,12 +6,26 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "echo \"Error: no test runner configured. Install jest or vitest.\" && exit 1",
+    "prepublishOnly": "npm run build"
   },
   "keywords": ["cortex", "memory", "embeddings", "semantic-search", "openclaw", "neutron"],
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/cortex"
+  },
+  "bugs": {
+    "url": "https://github.com/openclaw/cortex/issues"
+  },
+  "homepage": "https://github.com/openclaw/cortex#readme"
 }

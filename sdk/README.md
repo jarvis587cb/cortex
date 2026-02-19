@@ -46,7 +46,8 @@ const results = await client.queryMemory({
 - ✅ **TypeScript-first** - Full type safety
 - ✅ **Bundle support** - Organize memories into logical groups
 - ✅ **Semantic search** - Automatic embedding-based search
-- ✅ **Error handling** - Comprehensive error types
+- ✅ **Embedding generation** - Batch generate embeddings for existing memories
+- ✅ **Error handling** - Comprehensive error types with `CortexError`
 
 ## API Reference
 
@@ -133,6 +134,15 @@ Delete a bundle (memories remain, bundleId set to null).
 
 ```typescript
 await client.deleteBundle(1, "myapp", "user123");
+```
+
+#### `generateEmbeddings(batchSize?)`
+
+Generate embeddings for existing memories that don't have embeddings yet.
+
+```typescript
+const result = await client.generateEmbeddings(10); // Optional: batch size (default: 10, max: 100)
+// Returns: { message: "Embeddings generation started" }
 ```
 
 #### `health()`

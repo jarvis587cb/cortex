@@ -12,6 +12,7 @@ import {
   BundleResponse,
   CortexClientConfig,
   CortexError,
+  GenerateEmbeddingsResponse,
 } from "./types";
 
 export class CortexClient {
@@ -231,6 +232,19 @@ export class CortexClient {
           appId: appId || this.defaultAppId,
           externalUserId: externalUserId || this.defaultExternalUserId,
         },
+      }
+    );
+  }
+
+  async generateEmbeddings(
+    batchSize?: number
+  ): Promise<GenerateEmbeddingsResponse> {
+    return this.request<GenerateEmbeddingsResponse>(
+      "POST",
+      "/seeds/generate-embeddings",
+      {
+        queryParams:
+          batchSize !== undefined ? { batchSize } : undefined,
       }
     );
   }
