@@ -680,21 +680,79 @@ Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 - `valid_from`, `valid_to` – Optionale Gültigkeitszeiträume
 - `created_at` – Zeitstempel
 
+## Cortex als Neutron-Alternative
+
+Cortex ist eine **vollständig lokale, kostenlose Alternative** zur Neutron Memory API von Vanar. Während Neutron eine Cloud-basierte SaaS-Lösung ist, bietet Cortex dieselben Features als Self-hosted Lösung ohne externe Abhängigkeiten.
+
+### Kern-Features (Neutron-kompatibel)
+
+- ✅ **Persistent Semantic Memory**: Cross-Session Context, Memory überlebt Neustarts
+- ✅ **Seeds API**: Identische Endpunkte (`/seeds`, `/seeds/query`, `/seeds/:id`)
+- ✅ **Semantic Search**: Vector-Embeddings mit Cosine-Similarity (<200ms für typische Use-Cases)
+- ✅ **Multi-Tenant Support**: Sichere Isolation durch `appId` + `externalUserId`
+- ✅ **REST API + TypeScript SDK**: Production-ready, vollständig kompatibel
+- ✅ **Bundles**: Organisation von Memories in logische Gruppen
+- ✅ **Cross-Platform Continuity**: Gemeinsames Memory über Discord/Slack/WhatsApp/Web
+
+### Vorteile von Cortex
+
+- 🏠 **Lokal**: Keine Cloud-Abhängigkeit, vollständig Self-hosted
+- 💰 **Kostenlos**: Keine laufenden API-Kosten
+- 🔒 **Privacy**: 100% lokale Datenhaltung
+- ⚙️ **Kontrolle**: Volle Kontrolle über Infrastruktur und Daten
+- 🚀 **Schnell**: Keine Netzwerk-Latenz, lokale Performance
+
+### Dokumentation
+
+- **[CORTEX_NEUTRON_ALTERNATIVE.md](CORTEX_NEUTRON_ALTERNATIVE.md)** – Feature-für-Feature Vergleich mit Neutron-Artikel-Anforderungen
+- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** – Cross-Platform Integration Guide (Discord/Slack/WhatsApp/Web)
+- **[PERFORMANCE.md](PERFORMANCE.md)** – Performance-Benchmarks und Optimierungen
+- **[CRYPTO_EVALUATION.md](CRYPTO_EVALUATION.md)** – Evaluierung kryptographischer Verifizierung
+- **[VERGLEICH_NEUTRON.md](VERGLEICH_NEUTRON.md)** – Detaillierter Feature-Vergleich mit Neutron
+
+### Migration von Neutron
+
+**Minimale Code-Änderungen:**
+
+```typescript
+// Vorher (Neutron)
+import { NeutronClient } from '@vanar/neutron-sdk';
+const client = new NeutronClient({
+    apiKey: 'nk_...',
+    baseUrl: 'https://api-neutron.vanarchain.com'
+});
+
+// Nachher (Cortex) - nur Base-URL ändern
+import { CortexClient } from '@openclaw/cortex-sdk';
+const client = new CortexClient({
+    apiKey: 'your-key',
+    baseUrl: 'http://localhost:9123' // Lokaler Server
+});
+
+// API-Calls bleiben identisch
+await client.storeMemory({...});
+await client.queryMemory({...});
+```
+
+**Siehe [CORTEX_NEUTRON_ALTERNATIVE.md](CORTEX_NEUTRON_ALTERNATIVE.md) für vollständige Migrations-Anleitung.**
+
 ## Neutron-Kompatibilität
 
-Cortex bietet eine **neutron-kompatible Seeds-API** ohne Embeddings:
+Cortex bietet eine **vollständig neutron-kompatible Seeds-API** mit semantischer Suche:
 
 - ✅ Gleiche Endpunkte (`/seeds`, `/seeds/query`, `/seeds/:id`)
 - ✅ Gleiche Request/Response-Formate
 - ✅ Multi-Tenant-Support (`appId`, `externalUserId`)
-- ⚠️ **Textsuche statt semantischer Suche** (kein pgvector/Transformers.js nötig)
+- ✅ **Semantische Suche**: Vector-Embeddings mit Cosine-Similarity
+- ✅ **Lokale Embeddings**: 384-dimensionale Vektoren, vollständig offline
 
-**Unterschiede zu neutron-local:**
+**Unterschiede zu Neutron:**
 
-- Keine Embeddings: Textsuche mit `LIKE` statt Cosine-Similarity
-- Kein PostgreSQL: SQLite statt pgvector
-- Kein Transformers.js: Reines Go-Backend
-- Gleiche API-Formate: Kompatibel mit neutron-Skills/Tools
+- 🏠 **Deployment**: Lokal (Self-hosted) statt Cloud (SaaS)
+- 💰 **Kosten**: Kostenlos statt Pay-per-use
+- 🔒 **Privacy**: 100% lokale Datenhaltung statt Cloud-Daten
+- 📊 **Datenbank**: SQLite statt PostgreSQL + pgvector
+- ⚡ **Skalierung**: Ideal für <10,000 Memories, Neutron für Enterprise-Skalierung
 
 Die bestehende Cortex-API (`/remember`, `/recall`, etc.) bleibt für Rückwärtskompatibilität erhalten.
 
