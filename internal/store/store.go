@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -43,7 +44,17 @@ func NewCortexStore(dbPath string) (*CortexStore, error) {
 }
 
 func (s *CortexStore) migrate() error {
-	return s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{})
+	if err := s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{}); err != nil {
+		return err
+	}
+
+	// Composite Indizes für häufigste Queries
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_tenant ON memories(app_id, external_user_id)")
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_tenant_bundle ON memories(app_id, external_user_id, bundle_id)")
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_created_at ON memories(created_at DESC)")
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_embedding ON memories(embedding) WHERE embedding != '' AND embedding IS NOT NULL")
+
+	return nil
 }
 
 func (s *CortexStore) Close() error {
@@ -75,10 +86,6 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 	return memories, err
 }
 
-func (s *CortexStore) SearchMemoriesByTenant(appID, externalUserID, query string, limit int) ([]models.Memory, error) {
-	return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, nil, limit)
-}
-
 func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.db.Model(&models.Memory{}).
@@ -97,10 +104,6 @@ func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, que
 }
 
 // SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
-func (s *CortexStore) SearchMemoriesByTenantSemantic(appID, externalUserID, query string, limit int) ([]models.Memory, error) {
-	return s.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query, nil, limit)
-}
-
 func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
 	// Generiere Embedding für Query
 	embeddingService := embeddings.GetEmbeddingService()
@@ -153,13 +156,9 @@ func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUse
 	}
 
 	// Sortiere nach Similarity (höchste zuerst)
-	for i := 0; i < len(results)-1; i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[i].similarity < results[j].similarity {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].similarity > results[j].similarity
+	})
 
 	// Limitiere Ergebnisse
 	if limit > len(results) {
@@ -224,15 +223,6 @@ func (s *CortexStore) BatchGenerateEmbeddings(batchSize int) error {
 	return nil
 }
 
-func (s *CortexStore) GetMemoryByID(id int64) (*models.Memory, error) {
-	var mem models.Memory
-	err := s.db.First(&mem, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &mem, nil
-}
-
 func (s *CortexStore) GetMemoryByIDAndTenant(id int64, appID, externalUserID string) (*models.Memory, error) {
 	var mem models.Memory
 	err := s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).First(&mem).Error
@@ -261,11 +251,6 @@ func (s *CortexStore) ListEntities() ([]models.Entity, error) {
 	var entities []models.Entity
 	err := s.db.Order("updated_at DESC").Find(&entities).Error
 	return entities, err
-}
-
-func (s *CortexStore) UpdateEntity(ent *models.Entity) error {
-	ent.UpdatedAt = time.Now()
-	return s.db.Save(ent).Error
 }
 
 func (s *CortexStore) CreateOrUpdateEntity(ent *models.Entity) error {
@@ -307,15 +292,27 @@ func (s *CortexStore) CreateOrUpdateRelation(rel *models.Relation) error {
 
 func (s *CortexStore) GetStats() (*models.Stats, error) {
 	var stats models.Stats
-	if err := s.db.Model(&models.Memory{}).Count(&stats.Memories).Error; err != nil {
+	var results struct {
+		Memories  int64 `gorm:"column:memories"`
+		Entities  int64 `gorm:"column:entities"`
+		Relations int64 `gorm:"column:relations"`
+	}
+
+	err := s.db.Raw(`
+		SELECT 
+			(SELECT COUNT(*) FROM memories) as memories,
+			(SELECT COUNT(*) FROM entities) as entities,
+			(SELECT COUNT(*) FROM relations) as relations
+	`).Scan(&results).Error
+
+	if err != nil {
 		return nil, err
 	}
-	if err := s.db.Model(&models.Entity{}).Count(&stats.Entities).Error; err != nil {
-		return nil, err
-	}
-	if err := s.db.Model(&models.Relation{}).Count(&stats.Relations).Error; err != nil {
-		return nil, err
-	}
+
+	stats.Memories = results.Memories
+	stats.Entities = results.Entities
+	stats.Relations = results.Relations
+
 	return &stats, nil
 }
 

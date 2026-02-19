@@ -16,7 +16,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cortex ./cmd/cort
 # Runtime stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates wget
 
 WORKDIR /app
 
@@ -28,10 +28,6 @@ RUN mkdir -p /data
 
 # Expose port
 EXPOSE 9123
-
-# Set environment variables
-ENV CORTEX_PORT=9123
-ENV CORTEX_DB_PATH=/data/cortex.db
 
 # Run the binary
 CMD ["./cortex"]

@@ -146,7 +146,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	store.CreateMemory(mem2)
 	store.CreateMemory(mem3)
 
-	memories, err := store.SearchMemoriesByTenant("app1", "user1", "likes", 10)
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "likes", nil, 10)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenant failed: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	}
 
 	// Verify tenant isolation
-	memories2, _ := store.SearchMemoriesByTenant("app1", "user2", "likes", 10)
+	memories2, _ := store.SearchMemoriesByTenantAndBundle("app1", "user2", "likes", nil, 10)
 	if len(memories2) != 1 {
 		t.Errorf("expected 1 memory for user2, got %d", len(memories2))
 	}
@@ -173,7 +173,7 @@ func TestGetMemoryByID(t *testing.T) {
 	}
 	store.CreateMemory(mem)
 
-	retrieved, err := store.GetMemoryByID(mem.ID)
+	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, mem.AppID, mem.ExternalUserID)
 	if err != nil {
 		t.Fatalf("GetMemoryByID failed: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestDeleteMemory(t *testing.T) {
 	}
 
 	// Verify deletion
-	_, err = store.GetMemoryByID(mem.ID)
+	_, err = store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1")
 	if err == nil {
 		t.Error("memory should be deleted")
 	}

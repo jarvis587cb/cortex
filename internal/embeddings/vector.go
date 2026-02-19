@@ -3,6 +3,7 @@ package embeddings
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 )
 
 // Vector represents an embedding vector
@@ -53,7 +54,7 @@ func Normalize(v []float32) []float32 {
 	if sum == 0 {
 		return v
 	}
-	norm := sqrt(sum)
+	norm := math.Sqrt(sum)
 	result := make([]float32, len(v))
 	for i, val := range v {
 		result[i] = float32(float64(val) / norm)

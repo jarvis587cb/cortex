@@ -6,6 +6,7 @@ CMD_PATH=./cmd/cortex
 DOCKER_IMAGE=cortex
 DOCKER_TAG=latest
 GO_VERSION=1.23
+DOCKER_COMPOSE := $(shell command -v docker-compose 2>/dev/null || echo docker compose)
 
 # Farben für Output
 GREEN=\033[0;32m
@@ -95,36 +96,20 @@ docker-build: ## Baut Docker-Image
 
 docker-run: ## Startet Docker-Container
 	@echo "$(GREEN)Starting Docker container...$(NC)"
-	@if command -v docker-compose > /dev/null 2>&1; then \
-		sudo -E docker-compose up -d; \
-	else \
-		sudo -E docker compose up -d; \
-	fi
+	@sudo -E $(DOCKER_COMPOSE) up -d
 	@echo "$(GREEN)✓ Container gestartet$(NC)"
 
 docker-stop: ## Stoppt Docker-Container
 	@echo "$(GREEN)Stopping Docker container...$(NC)"
-	@if command -v docker-compose > /dev/null 2>&1; then \
-		sudo -E docker-compose down; \
-	else \
-		sudo -E docker compose down; \
-	fi
+	@sudo -E $(DOCKER_COMPOSE) down
 	@echo "$(GREEN)✓ Container gestoppt$(NC)"
 
 docker-logs: ## Zeigt Docker-Logs
-	@if command -v docker-compose > /dev/null 2>&1; then \
-		sudo -E docker-compose logs -f; \
-	else \
-		sudo -E docker compose logs -f; \
-	fi
+	@sudo -E $(DOCKER_COMPOSE) logs -f
 
 docker-clean: ## Entfernt Docker-Images und Container
 	@echo "$(GREEN)Cleaning Docker artifacts...$(NC)"
-	@if command -v docker-compose > /dev/null 2>&1; then \
-		sudo -E docker-compose down -v; \
-	else \
-		sudo -E docker compose down -v; \
-	fi
+	@sudo -E $(DOCKER_COMPOSE) down -v
 	@sudo docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
 	@echo "$(GREEN)✓ Docker-Clean abgeschlossen$(NC)"
 

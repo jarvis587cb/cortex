@@ -9,20 +9,16 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 - ✅ **Lokaler Embedding-Service**: Vollständig lokale Embedding-Generierung ohne externe APIs
 - ✅ **Multi-Tenant-Support**: Isolation durch `appId` + `externalUserId`
 - ✅ **Neutron-kompatibel**: Gleiche API-Formate wie neutron-local
+- ✅ **Bundles**: Organisation von Memories in logische Gruppen
+- ✅ **Webhooks**: Event-Benachrichtigungen für Memory-Änderungen
+- ✅ **Analytics**: Dashboard-Daten über API
+- ✅ **Export/Import**: Daten-Migration unterstützt
+- ✅ **Backup/Restore**: Datenbank-Backup verfügbar
+- ✅ **Rate Limiting**: Token-Bucket-Algorithmus für API-Schutz
 - ✅ **Leichtgewichtig**: Pure-Go (kein cgo), keine externen Dependencies außer SQLite
 - ✅ **REST-API**: Einfache HTTP-Endpunkte für alle Operationen
-- ✅ **OpenClaw-Integration**: TypeScript-Plugin mit Agent-Tools
-
-## Features
-
-- ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
-- ✅ **Multimodal-Support**: Unterstützung für Text, Bilder und Dokumente
-- ✅ **Lokaler Embedding-Service**: Vollständig lokale Embedding-Generierung ohne externe APIs
-- ✅ **Neutron-kompatible API**: Seeds-API für einfache Integration
-- ✅ **Multi-Tenant**: Isolation von Daten nach `appId` und `externalUserId`
-- ✅ **REST API**: Vollständige HTTP-API für alle Operationen
-- ✅ **SQLite**: Leichtgewichtige, embedded Datenbank
-- ✅ **Docker Support**: Containerisierung für einfache Deployment
+- ✅ **TypeScript SDK**: Vollständiges SDK für einfache Integration
+- ✅ **Docker Support**: Containerisierung für einfaches Deployment
 
 ## Architektur
 

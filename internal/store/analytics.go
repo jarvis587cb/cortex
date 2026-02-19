@@ -1,6 +1,7 @@
 package store
 
 import (
+	"sort"
 	"time"
 
 	"cortex/internal/models"
@@ -51,23 +52,23 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 	startTime := time.Now().AddDate(0, 0, -days)
 	endTime := time.Now()
 
-	// Total memories
-	var totalMemories int64
-	s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
-		Count(&totalMemories)
+	// Total memories, bundles, and memories with embeddings (combined query)
+	var counts struct {
+		TotalMemories         int64 `gorm:"column:total_memories"`
+		TotalBundles          int64 `gorm:"column:total_bundles"`
+		MemoriesWithEmbeddings int64 `gorm:"column:memories_with_embeddings"`
+	}
 
-	// Total bundles
-	var totalBundles int64
-	s.db.Model(&models.Bundle{}).
-		Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
-		Count(&totalBundles)
+	err := s.db.Raw(`
+		SELECT 
+			(SELECT COUNT(*) FROM memories WHERE app_id = ? AND external_user_id = ?) as total_memories,
+			(SELECT COUNT(*) FROM bundles WHERE app_id = ? AND external_user_id = ?) as total_bundles,
+			(SELECT COUNT(*) FROM memories WHERE app_id = ? AND external_user_id = ? AND embedding != '' AND embedding IS NOT NULL) as memories_with_embeddings
+	`, appID, externalUserID, appID, externalUserID, appID, externalUserID).Scan(&counts).Error
 
-	// Memories with embeddings
-	var memoriesWithEmbeddings int64
-	s.db.Model(&models.Memory{}).
-		Where("app_id = ? AND external_user_id = ? AND embedding != ''", appID, externalUserID).
-		Count(&memoriesWithEmbeddings)
+	if err != nil {
+		return nil, err
+	}
 
 	// Memories by type
 	typeCounts := make(map[string]int64)
@@ -134,14 +135,9 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 	}
 
 	// Sort by timestamp (most recent first)
-	// Simple bubble sort for small arrays
-	for i := 0; i < len(activities)-1; i++ {
-		for j := i + 1; j < len(activities); j++ {
-			if activities[i].Timestamp.Before(activities[j].Timestamp) {
-				activities[i], activities[j] = activities[j], activities[i]
-			}
-		}
-	}
+	sort.Slice(activities, func(i, j int) bool {
+		return activities[i].Timestamp.After(activities[j].Timestamp)
+	})
 
 	// Limit to 50 most recent
 	if len(activities) > 50 {
@@ -155,8 +151,8 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 		Count(&webhooksCount)
 
 	storageStats := StorageStats{
-		MemoriesCount: totalMemories,
-		BundlesCount:  totalBundles,
+		MemoriesCount: counts.TotalMemories,
+		BundlesCount:  counts.TotalBundles,
 		WebhooksCount: webhooksCount,
 	}
 
@@ -164,9 +160,9 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 		TenantID:             appID + ":" + externalUserID,
 		AppID:                appID,
 		ExternalUserID:       externalUserID,
-		TotalMemories:        totalMemories,
-		TotalBundles:         totalBundles,
-		MemoriesWithEmbeddings: memoriesWithEmbeddings,
+		TotalMemories:        counts.TotalMemories,
+		TotalBundles:         counts.TotalBundles,
+		MemoriesWithEmbeddings: counts.MemoriesWithEmbeddings,
 		MemoriesByType:       typeCounts,
 		MemoriesByBundle:     bundleCounts,
 		RecentActivity:       activities,
@@ -187,33 +183,39 @@ func (s *CortexStore) GetGlobalAnalytics(days int) (*AnalyticsData, error) {
 	startTime := time.Now().AddDate(0, 0, -days)
 	endTime := time.Now()
 
-	var totalMemories int64
-	s.db.Model(&models.Memory{}).Count(&totalMemories)
+	// Combined COUNT queries for global analytics
+	var counts struct {
+		TotalMemories         int64 `gorm:"column:total_memories"`
+		TotalBundles          int64 `gorm:"column:total_bundles"`
+		MemoriesWithEmbeddings int64 `gorm:"column:memories_with_embeddings"`
+		WebhooksCount         int64 `gorm:"column:webhooks_count"`
+	}
 
-	var totalBundles int64
-	s.db.Model(&models.Bundle{}).Count(&totalBundles)
+	err := s.db.Raw(`
+		SELECT 
+			(SELECT COUNT(*) FROM memories) as total_memories,
+			(SELECT COUNT(*) FROM bundles) as total_bundles,
+			(SELECT COUNT(*) FROM memories WHERE embedding != '' AND embedding IS NOT NULL) as memories_with_embeddings,
+			(SELECT COUNT(*) FROM webhooks) as webhooks_count
+	`).Scan(&counts).Error
 
-	var memoriesWithEmbeddings int64
-	s.db.Model(&models.Memory{}).
-		Where("embedding != ''").
-		Count(&memoriesWithEmbeddings)
-
-	var webhooksCount int64
-	s.db.Model(&models.Webhook{}).Count(&webhooksCount)
+	if err != nil {
+		return nil, err
+	}
 
 	storageStats := StorageStats{
-		MemoriesCount: totalMemories,
-		BundlesCount:  totalBundles,
-		WebhooksCount: webhooksCount,
+		MemoriesCount: counts.TotalMemories,
+		BundlesCount:  counts.TotalBundles,
+		WebhooksCount: counts.WebhooksCount,
 	}
 
 	return &AnalyticsData{
 		TenantID:             "global",
 		AppID:                "",
 		ExternalUserID:       "",
-		TotalMemories:        totalMemories,
-		TotalBundles:         totalBundles,
-		MemoriesWithEmbeddings: memoriesWithEmbeddings,
+		TotalMemories:        counts.TotalMemories,
+		TotalBundles:         counts.TotalBundles,
+		MemoriesWithEmbeddings: counts.MemoriesWithEmbeddings,
 		MemoriesByType:       make(map[string]int64),
 		MemoriesByBundle:     make(map[int64]int64),
 		RecentActivity:       []ActivityEntry{},

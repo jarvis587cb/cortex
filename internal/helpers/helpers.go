@@ -51,6 +51,29 @@ func ParseLimit(limitStr string, defaultLimit, maxLimit int) int {
 	return limit
 }
 
+// TenantParamExtractor interface für Request-Types mit Tenant-Parametern
+type TenantParamExtractor interface {
+	GetAppID() string
+	GetExternalUserID() string
+}
+
+// ExtractTenantParams extrahiert appID und externalUserID aus Query-Parametern oder Request-Body
+// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Request-Body
+func ExtractTenantParams(r *http.Request, req TenantParamExtractor) (appID, externalUserID string) {
+	appID = GetQueryParam(r, "appId")
+	externalUserID = GetQueryParam(r, "externalUserId")
+
+	// Fallback zu Request-Body wenn Query-Parameter leer
+	if appID == "" && req != nil {
+		appID = req.GetAppID()
+	}
+	if externalUserID == "" && req != nil {
+		externalUserID = req.GetExternalUserID()
+	}
+
+	return appID, externalUserID
+}
+
 func ParseID(idStr string) (int64, error) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

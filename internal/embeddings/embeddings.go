@@ -2,6 +2,7 @@ package embeddings
 
 import (
 	"log/slog"
+	"math"
 	"strings"
 )
 
@@ -130,20 +131,7 @@ func CosineSimilarity(a, b []float32) float64 {
 		return 0.0
 	}
 
-	return dotProduct / (sqrt(normA) * sqrt(normB))
-}
-
-// sqrt - einfache Square-Root-Implementierung
-func sqrt(x float64) float64 {
-	if x == 0 {
-		return 0
-	}
-	// Newton's method
-	guess := x / 2
-	for i := 0; i < 10; i++ {
-		guess = (guess + x/guess) / 2
-	}
-	return guess
+	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
 // DetectContentType erkennt den Content-Type basierend auf Content

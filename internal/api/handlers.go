@@ -243,14 +243,7 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
-	appID := helpers.GetQueryParam(r, "appId")
-	if appID == "" {
-		appID = req.AppID
-	}
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
-	if externalUserID == "" {
-		externalUserID = req.ExternalUserID
-	}
+	appID, externalUserID := helpers.ExtractTenantParams(r, &req)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -309,14 +302,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
-	appID := helpers.GetQueryParam(r, "appId")
-	if appID == "" {
-		appID = req.AppID
-	}
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
-	if externalUserID == "" {
-		externalUserID = req.ExternalUserID
-	}
+	appID, externalUserID := helpers.ExtractTenantParams(r, &req)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -415,8 +401,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -467,14 +452,7 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query-Parameter haben Priorität (Neutron-kompatibel), Fallback zu Body
-	appID := helpers.GetQueryParam(r, "appId")
-	if appID == "" {
-		appID = req.AppID
-	}
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
-	if externalUserID == "" {
-		externalUserID = req.ExternalUserID
-	}
+	appID, externalUserID := helpers.ExtractTenantParams(r, &req)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -517,8 +495,7 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -563,8 +540,7 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -608,8 +584,7 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -629,13 +604,6 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-
-	// Trigger webhook asynchron
-	go h.triggerWebhook(webhooks.EventBundleDeleted, map[string]interface{}{
-		"id":             id,
-		"app_id":         appID,
-		"external_user_id": externalUserID,
-	})
 
 	// Trigger webhook asynchron
 	go h.triggerWebhook(webhooks.EventBundleDeleted, map[string]interface{}{
@@ -753,8 +721,7 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 // Export/Import API Handlers
 
 func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,
@@ -778,8 +745,7 @@ func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleImport(w http.ResponseWriter, r *http.Request) {
-	appID := helpers.GetQueryParam(r, "appId")
-	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
 
 	fields := map[string]string{
 		"appId":          appID,

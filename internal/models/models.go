@@ -100,6 +100,9 @@ type StoreSeedRequest struct {
 	BundleID       *int64         `json:"bundleId,omitempty"`
 }
 
+func (r *StoreSeedRequest) GetAppID() string        { return r.AppID }
+func (r *StoreSeedRequest) GetExternalUserID() string { return r.ExternalUserID }
+
 type StoreSeedResponse struct {
 	ID      int64  `json:"id"`
 	Message string `json:"message"`
@@ -112,6 +115,9 @@ type QuerySeedRequest struct {
 	Limit          int    `json:"limit,omitempty"`
 	BundleID       *int64 `json:"bundleId,omitempty"`
 }
+
+func (r *QuerySeedRequest) GetAppID() string        { return r.AppID }
+func (r *QuerySeedRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type QuerySeedResult struct {
 	ID         int64          `json:"id"`
@@ -133,6 +139,9 @@ type CreateBundleRequest struct {
 	ExternalUserID string `json:"externalUserId"`
 	Name           string `json:"name"`
 }
+
+func (r *CreateBundleRequest) GetAppID() string        { return r.AppID }
+func (r *CreateBundleRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type BundleResponse struct {
 	ID             int64     `json:"id"`
