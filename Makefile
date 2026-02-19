@@ -1,4 +1,4 @@
-.PHONY: help build run test test-race test-coverage clean fmt vet lint docker-build docker-run docker-stop install deps
+.PHONY: help build run test test-race test-coverage clean fmt vet lint docker-build docker-run docker-stop docker-up docker-down install deps
 
 # Variablen
 BINARY_NAME=cortex
@@ -91,26 +91,30 @@ install: build ## Installiert die Binary (kopiert nach /usr/local/bin)
 # Docker Targets
 docker-build: ## Baut Docker-Image
 	@echo "$(GREEN)Building Docker image...$(NC)"
-	@sudo docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	@docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 	@echo "$(GREEN)✓ Docker image erstellt: $(DOCKER_IMAGE):$(DOCKER_TAG)$(NC)"
 
-docker-run: ## Startet Docker-Container
+docker-run: ## Startet Docker-Container (alias: docker-up)
 	@echo "$(GREEN)Starting Docker container...$(NC)"
-	@sudo -E $(DOCKER_COMPOSE) up -d
+	@$(DOCKER_COMPOSE) up -d
 	@echo "$(GREEN)✓ Container gestartet$(NC)"
 
-docker-stop: ## Stoppt Docker-Container
+docker-up: docker-run ## Startet Docker-Container (docker compose up -d)
+
+docker-stop: ## Stoppt Docker-Container (alias: docker-down)
 	@echo "$(GREEN)Stopping Docker container...$(NC)"
-	@sudo -E $(DOCKER_COMPOSE) down
+	@$(DOCKER_COMPOSE) down
 	@echo "$(GREEN)✓ Container gestoppt$(NC)"
 
+docker-down: docker-stop ## Stoppt Docker-Container (docker compose down)
+
 docker-logs: ## Zeigt Docker-Logs
-	@sudo -E $(DOCKER_COMPOSE) logs -f
+	@$(DOCKER_COMPOSE) logs -f
 
 docker-clean: ## Entfernt Docker-Images und Container
 	@echo "$(GREEN)Cleaning Docker artifacts...$(NC)"
-	@sudo -E $(DOCKER_COMPOSE) down -v
-	@sudo docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
+	@$(DOCKER_COMPOSE) down -v
+	@docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
 	@echo "$(GREEN)✓ Docker-Clean abgeschlossen$(NC)"
 
 # Script-Tests
