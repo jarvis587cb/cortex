@@ -147,7 +147,7 @@ describe("CortexClient", () => {
   });
 
   describe("generateEmbeddings", () => {
-    it("should generate embeddings", async () => {
+    it("should generate embeddings", async () => {("should generate embeddings", async () => {
       const result = await client.generateEmbeddings(10);
       expect(result).toHaveProperty("message");
     });
