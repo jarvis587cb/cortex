@@ -231,9 +231,9 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fields := map[string]string{
-		"appId":         req.AppID,
+		"appId":          req.AppID,
 		"externalUserId": req.ExternalUserID,
-		"content":       req.Content,
+		"content":        req.Content,
 	}
 	if field, ok := helpers.ValidateRequired(fields); !ok {
 		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
@@ -241,12 +241,12 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mem := models.Memory{
-		Type:          helpers.DefaultMemType,
-		Content:       req.Content,
-		AppID:         req.AppID,
+		Type:           helpers.DefaultMemType,
+		Content:        req.Content,
+		AppID:          req.AppID,
 		ExternalUserID: req.ExternalUserID,
-		Metadata:      helpers.MarshalMetadata(req.Metadata),
-		Importance:    helpers.DefaultImportance,
+		Metadata:       helpers.MarshalMetadata(req.Metadata),
+		Importance:     helpers.DefaultImportance,
 	}
 
 	if err := h.store.CreateMemory(&mem); err != nil {
@@ -269,9 +269,9 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fields := map[string]string{
-		"appId":         req.AppID,
+		"appId":          req.AppID,
 		"externalUserId": req.ExternalUserID,
-		"query":         req.Query,
+		"query":          req.Query,
 	}
 	if field, ok := helpers.ValidateRequired(fields); !ok {
 		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
@@ -328,7 +328,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 	externalUserID := helpers.GetQueryParam(r, "externalUserId")
 
 	fields := map[string]string{
-		"appId":         appID,
+		"appId":          appID,
 		"externalUserId": externalUserID,
 	}
 	if field, ok := helpers.ValidateRequired(fields); !ok {

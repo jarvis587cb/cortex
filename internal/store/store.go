@@ -150,13 +150,13 @@ func (s *CortexStore) GetRelations(entity string) ([]models.Relation, error) {
 func (s *CortexStore) CreateOrUpdateRelation(rel *models.Relation) error {
 	var existing models.Relation
 	result := s.db.Where("from_entity = ? AND to_entity = ? AND type = ?", rel.From, rel.To, rel.Type).First(&existing)
-	
+
 	if result.Error == gorm.ErrRecordNotFound {
 		return s.db.Create(rel).Error
 	} else if result.Error != nil {
 		return result.Error
 	}
-	
+
 	existing.From = rel.From
 	existing.To = rel.To
 	existing.Type = rel.Type

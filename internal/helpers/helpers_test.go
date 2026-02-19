@@ -19,7 +19,7 @@ func TestValidateRequired(t *testing.T) {
 		{"empty map", map[string]string{}, true, ""},
 		{"whitespace only", map[string]string{"a": "   "}, false, "a"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			field, ok := ValidateRequired(tt.fields)
@@ -48,7 +48,7 @@ func TestParseLimit(t *testing.T) {
 		{"negative", "-5", 10, 100, 10},
 		{"invalid format", "abc", 10, 100, 10},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ParseLimit(tt.limitStr, tt.defaultLimit, tt.maxLimit)
@@ -72,7 +72,7 @@ func TestParseID(t *testing.T) {
 		{"invalid format", "abc", 0, true},
 		{"empty", "", 0, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id, err := ParseID(tt.idStr)
@@ -100,7 +100,7 @@ func TestExtractPathID(t *testing.T) {
 		{"empty id", "/seeds/", "/seeds/", "", true},
 		{"trailing slash", "/seeds/123/", "/seeds/", "123", false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id, err := ExtractPathID(tt.path, tt.prefix)
@@ -123,15 +123,15 @@ func TestExtractPathID(t *testing.T) {
 
 func TestMarshalUnmarshalMetadata(t *testing.T) {
 	original := map[string]any{
-		"tags": []string{"test", "example"},
+		"tags":  []string{"test", "example"},
 		"count": 42,
 	}
-	
+
 	marshaled := MarshalMetadata(original)
 	if marshaled == "" {
 		t.Error("MarshalMetadata returned empty string")
 	}
-	
+
 	unmarshaled := UnmarshalMetadata(marshaled)
 	if len(unmarshaled) != len(original) {
 		t.Errorf("expected %d keys, got %d", len(original), len(unmarshaled))
@@ -143,12 +143,12 @@ func TestMarshalUnmarshalEntityData(t *testing.T) {
 		"key1": "value1",
 		"key2": 123,
 	}
-	
+
 	marshaled := MarshalEntityData(original)
 	if marshaled == "" {
 		t.Error("MarshalEntityData returned empty string")
 	}
-	
+
 	unmarshaled := UnmarshalEntityData(marshaled)
 	if len(unmarshaled) != len(original) {
 		t.Errorf("expected %d keys, got %d", len(original), len(unmarshaled))
@@ -157,7 +157,7 @@ func TestMarshalUnmarshalEntityData(t *testing.T) {
 
 func TestGetQueryParam(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test?param=value&empty=", nil)
-	
+
 	if GetQueryParam(req, "param") != "value" {
 		t.Error("failed to get query param")
 	}
@@ -172,18 +172,18 @@ func TestGetQueryParam(t *testing.T) {
 func TestWriteJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	data := map[string]string{"status": "ok"}
-	
+
 	WriteJSON(w, http.StatusOK, data)
-	
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
-	
+
 	contentType := w.Header().Get("Content-Type")
 	if contentType != "application/json" {
 		t.Errorf("expected content-type application/json, got %s", contentType)
 	}
-	
+
 	if !strings.Contains(w.Body.String(), "status") {
 		t.Error("response body does not contain expected data")
 	}

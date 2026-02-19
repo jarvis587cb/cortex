@@ -5,24 +5,24 @@ import "time"
 // Database Models
 
 type Memory struct {
-	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	Type          string         `gorm:"not null;default:'semantic'" json:"type"`
-	Content       string         `gorm:"not null" json:"content"`
-	Entity        string         `json:"entity,omitempty"`
-	Tags          string         `json:"tags,omitempty"`
-	Importance    int            `gorm:"not null;default:5" json:"importance"`
-	AppID         string         `gorm:"column:app_id;not null;default:'openclaw';index" json:"app_id,omitempty"`
-	ExternalUserID string        `gorm:"column:external_user_id;not null;default:'default';index" json:"external_user_id,omitempty"`
-	Metadata      string         `gorm:"type:text" json:"-"`
-	MetadataMap   map[string]any  `gorm:"-" json:"metadata,omitempty"`
-	CreatedAt     time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	ID             int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Type           string         `gorm:"not null;default:'semantic'" json:"type"`
+	Content        string         `gorm:"not null" json:"content"`
+	Entity         string         `json:"entity,omitempty"`
+	Tags           string         `json:"tags,omitempty"`
+	Importance     int            `gorm:"not null;default:5" json:"importance"`
+	AppID          string         `gorm:"column:app_id;not null;default:'openclaw';index" json:"app_id,omitempty"`
+	ExternalUserID string         `gorm:"column:external_user_id;not null;default:'default';index" json:"external_user_id,omitempty"`
+	Metadata       string         `gorm:"type:text" json:"-"`
+	MetadataMap    map[string]any `gorm:"-" json:"metadata,omitempty"`
+	CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 type Entity struct {
 	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string         `gorm:"uniqueIndex;not null" json:"name"`
 	Data      string         `gorm:"type:text" json:"-"`
-	DataMap   map[string]any  `gorm:"-" json:"data"`
+	DataMap   map[string]any `gorm:"-" json:"data"`
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
@@ -71,10 +71,10 @@ type RelationRequest struct {
 // Neutron-compatible Seeds API Types
 
 type StoreSeedRequest struct {
-	AppID         string         `json:"appId"`
-	ExternalUserID string        `json:"externalUserId"`
-	Content       string         `json:"content"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
+	AppID          string         `json:"appId"`
+	ExternalUserID string         `json:"externalUserId"`
+	Content        string         `json:"content"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
 type StoreSeedResponse struct {
@@ -83,18 +83,18 @@ type StoreSeedResponse struct {
 }
 
 type QuerySeedRequest struct {
-	AppID         string `json:"appId"`
+	AppID          string `json:"appId"`
 	ExternalUserID string `json:"externalUserId"`
-	Query         string `json:"query"`
-	Limit         int    `json:"limit,omitempty"`
+	Query          string `json:"query"`
+	Limit          int    `json:"limit,omitempty"`
 }
 
 type QuerySeedResult struct {
-	ID         int64             `json:"id"`
-	Content    string            `json:"content"`
-	Metadata   map[string]any     `json:"metadata"`
-	CreatedAt  time.Time         `json:"created_at"`
-	Similarity float64           `json:"similarity"`
+	ID         int64          `json:"id"`
+	Content    string         `json:"content"`
+	Metadata   map[string]any `json:"metadata"`
+	CreatedAt  time.Time      `json:"created_at"`
+	Similarity float64        `json:"similarity"`
 }
 
 type DeleteSeedResponse struct {

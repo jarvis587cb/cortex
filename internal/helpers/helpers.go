@@ -9,12 +9,12 @@ import (
 
 // Constants
 const (
-	DefaultPort     = "9123"
-	DefaultDBName   = "cortex.db"
-	DefaultMemType  = "semantic"
+	DefaultPort       = "9123"
+	DefaultDBName     = "cortex.db"
+	DefaultMemType    = "semantic"
 	DefaultImportance = 5
-	DefaultLimit    = 10
-	MaxLimit        = 100
+	DefaultLimit      = 10
+	MaxLimit          = 100
 )
 
 // JSON Helpers
@@ -63,11 +63,6 @@ func ParseID(idStr string) (int64, error) {
 }
 
 // Metadata Mapping Helpers
-
-func MapMemoryMetadata(memories []map[string]any, metadataField string) {
-	// This function is kept for compatibility but may need adjustment
-	// depending on how it's used
-}
 
 func MarshalMetadata(metadata map[string]any) string {
 	if len(metadata) == 0 {
