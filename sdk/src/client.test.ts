@@ -147,13 +147,18 @@ describe("CortexClient", () => {
   });
 
   describe("generateEmbeddings", () => {
-    it("should generate embeddings", async () => {("should generate embeddings", async () => {
+    it("should generate embeddings", async () => {
       const result = await client.generateEmbeddings(10);
       expect(result).toHaveProperty("message");
     });
 
     it("should support custom batch size", async () => {
       const result = await client.generateEmbeddings(20);
+      expect(result).toHaveProperty("message");
+    });
+
+    it("should work without batch size", async () => {
+      const result = await client.generateEmbeddings();
       expect(result).toHaveProperty("message");
     });
   });
