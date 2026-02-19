@@ -8,7 +8,6 @@ async function main() {
   // Initialize client
   const client = new CortexClient({
     baseUrl: "http://localhost:9123",
-    apiKey: "your-api-key", // Optional
     appId: "myapp", // Optional: default for all requests
     externalUserId: "user123", // Optional: default for all requests
   });

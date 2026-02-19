@@ -137,8 +137,7 @@
 - ✅ `Authorization: <key>` (direkt)
 
 **Verhalten:**
-- Wenn `CORTEX_API_KEY` nicht gesetzt: Auth deaktiviert (Development)
-- Wenn `CORTEX_API_KEY` gesetzt: Auth erforderlich für alle Endpunkte außer `/health`
+- Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar.
 
 ## Bekannte Einschränkungen
 

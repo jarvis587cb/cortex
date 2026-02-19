@@ -14,7 +14,6 @@ HTTP-Datei für VS Code REST Client Extension oder IntelliJ HTTP Client.
 
 **Variablen anpassen:**
 - `@baseUrl` - API Base URL (Standard: http://localhost:9123)
-- `@apiKey` - API-Key für Authentifizierung (optional)
 - `@appId` - App-ID für Multi-Tenant (Standard: openclaw)
 - `@userId` - User-ID für Multi-Tenant (Standard: default)
 
@@ -23,15 +22,11 @@ Bash-Script mit curl-Beispielen für alle API-Endpunkte.
 
 **Verwendung:**
 ```bash
-# Ohne API-Key (Development-Modus)
+# Standard
 ./tests/curl-examples.sh
-
-# Mit API-Key
-CORTEX_API_KEY=your-secret-key ./tests/curl-examples.sh
 
 # Mit angepassten Werten
 CORTEX_API_URL=http://localhost:9123 \
-CORTEX_API_KEY=your-key \
 CORTEX_APP_ID=my-app \
 CORTEX_USER_ID=my-user \
 ./tests/curl-examples.sh

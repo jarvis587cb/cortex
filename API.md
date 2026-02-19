@@ -20,7 +20,7 @@ Alle Endpunkte (außer `/health`) erfordern Authentifizierung über den `X-API-K
 X-API-Key: dein-api-key
 ```
 
-**Hinweis:** Wenn `CORTEX_API_KEY` nicht gesetzt ist, wird die Authentifizierung deaktiviert.
+**Hinweis:** Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar.
 
 ## Basis-URL
 
@@ -555,7 +555,6 @@ import { CortexClient } from "@cortex/memory-sdk";
 
 const client = new CortexClient({
   baseUrl: "http://localhost:9123",
-  apiKey: "dein-key",
   appId: "myapp",
   externalUserId: "user123",
 });

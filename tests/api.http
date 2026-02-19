@@ -2,7 +2,6 @@
 ### Für VS Code REST Client Extension oder IntelliJ HTTP Client
 
 @baseUrl = http://localhost:9123
-@apiKey = your-secret-key-here
 @appId = openclaw
 @userId = default
 
@@ -19,7 +18,6 @@ GET {{baseUrl}}/health
 ### Memory speichern (Seeds-API)
 POST {{baseUrl}}/seeds
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "appId": "{{appId}}",
@@ -34,7 +32,6 @@ Authorization: Bearer {{apiKey}}
 ### Memory-Suche (Seeds-API)
 POST {{baseUrl}}/seeds/query
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "appId": "{{appId}}",
@@ -46,7 +43,6 @@ Authorization: Bearer {{apiKey}}
 ### Memory löschen (Seeds-API)
 ### Ersetze {id} mit einer tatsächlichen Memory-ID
 DELETE {{baseUrl}}/seeds/1?appId={{appId}}&externalUserId={{userId}}
-Authorization: Bearer {{apiKey}}
 
 ### ============================================
 ### Cortex API (Original)
@@ -55,7 +51,6 @@ Authorization: Bearer {{apiKey}}
 ### Erinnerung speichern
 POST {{baseUrl}}/remember
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "content": "Der Nutzer mag Kaffee mit Hafermilch",
@@ -67,16 +62,13 @@ Authorization: Bearer {{apiKey}}
 
 ### Erinnerungen abrufen
 GET {{baseUrl}}/recall?q=Kaffee&limit=5
-Authorization: Bearer {{apiKey}}
 
 ### Erinnerungen nach Typ abrufen
 GET {{baseUrl}}/recall?type=semantic&limit=10
-Authorization: Bearer {{apiKey}}
 
 ### Fakt für Entity setzen
 POST {{baseUrl}}/entities?entity=user:jarvis
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "key": "favorite_coffee",
@@ -85,16 +77,13 @@ Authorization: Bearer {{apiKey}}
 
 ### Entity abrufen
 GET {{baseUrl}}/entities?name=user:jarvis
-Authorization: Bearer {{apiKey}}
 
 ### Alle Entities auflisten
 GET {{baseUrl}}/entities
-Authorization: Bearer {{apiKey}}
 
 ### Relation hinzufügen
 POST {{baseUrl}}/relations
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "from": "user:jarvis",
@@ -104,15 +93,12 @@ Authorization: Bearer {{apiKey}}
 
 ### Relationen abrufen
 GET {{baseUrl}}/relations?entity=user:jarvis
-Authorization: Bearer {{apiKey}}
 
 ### Alle Relationen abrufen
 GET {{baseUrl}}/relations
-Authorization: Bearer {{apiKey}}
 
 ### Statistiken abrufen
 GET {{baseUrl}}/stats
-Authorization: Bearer {{apiKey}}
 
 ### ============================================
 ### Tests ohne Authentifizierung (Development)
@@ -121,7 +107,7 @@ Authorization: Bearer {{apiKey}}
 ### Health Check (immer öffentlich)
 GET {{baseUrl}}/health
 
-### Memory speichern ohne Auth (wenn CORTEX_API_KEY nicht gesetzt)
+### Memory speichern (keine Auth erforderlich)
 POST {{baseUrl}}/seeds
 Content-Type: application/json
 
@@ -139,7 +125,6 @@ Content-Type: application/json
 ### Ungültiger Request (fehlendes Content)
 POST {{baseUrl}}/seeds
 Content-Type: application/json
-Authorization: Bearer {{apiKey}}
 
 {
   "appId": "{{appId}}",
@@ -148,12 +133,9 @@ Authorization: Bearer {{apiKey}}
 
 ### Ungültige ID beim Löschen
 DELETE {{baseUrl}}/seeds/999999?appId={{appId}}&externalUserId={{userId}}
-Authorization: Bearer {{apiKey}}
 
 ### Ungültige Methode
 PUT {{baseUrl}}/seeds
-Authorization: Bearer {{apiKey}}
 
 ### Fehlende Query-Parameter
 GET {{baseUrl}}/entities
-Authorization: Bearer {{apiKey}}

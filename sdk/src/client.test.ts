@@ -10,7 +10,6 @@ import { CortexClient, CortexError } from "./index";
 describe("CortexClient", () => {
   const client = new CortexClient({
     baseUrl: "http://localhost:9123",
-    apiKey: "test-key",
     appId: "test-app",
     externalUserId: "test-user",
   });
@@ -167,14 +166,13 @@ describe("CortexClient", () => {
     it("should throw CortexError on API errors", async () => {
       const invalidClient = new CortexClient({
         baseUrl: "http://localhost:9123",
-        apiKey: "invalid-key",
       });
 
       await expect(
         invalidClient.storeMemory({
           appId: "test",
           externalUserId: "test",
-          content: "test",
+          content: "", // empty content triggers validation error
         })
       ).rejects.toThrow(CortexError);
     });

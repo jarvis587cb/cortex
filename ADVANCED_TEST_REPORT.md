@@ -143,10 +143,7 @@
 ### ✅ Authentifizierung (Erweitert)
 
 #### Test 23: Verschiedene Auth-Formate
-- ✅ **Ohne API-Key:** 401 Unauthorized (wenn CORTEX_API_KEY gesetzt)
-- ✅ **X-API-Key Header:** Funktioniert
-- ✅ **Authorization Bearer:** Funktioniert
-- ✅ **Falscher API-Key:** 401 Unauthorized
+- API-Key-Authentifizierung wurde aus dem Projekt entfernt; alle Endpunkte sind ohne Auth erreichbar.
 
 ### ✅ Embedding-Generierung
 

@@ -53,7 +53,6 @@ export interface BundleResponse {
 
 export interface CortexClientConfig {
   baseUrl?: string;
-  apiKey?: string;
   appId?: string;
   externalUserId?: string;
 }

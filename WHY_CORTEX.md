@@ -231,8 +231,7 @@ fs.writeFileSync("MEMORY.md", "Agent lernt etwas");
 import { CortexClient } from "@openclaw/cortex-sdk";
 
 const cortex = new CortexClient({
-    baseURL: "http://localhost:9123",
-    apiKey: process.env.CORTEX_API_KEY
+    baseUrl: process.env.CORTEX_API_URL || "http://localhost:9123"
 });
 
 // Memory persistiert

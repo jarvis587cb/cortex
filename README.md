@@ -73,7 +73,6 @@ go run ./...
 
 - `CORTEX_DB_PATH` – Pfad zur SQLite-Datei (Standard: `~/.openclaw/cortex.db`)
 - `CORTEX_PORT` – Port (Standard: `9123`)
-- `CORTEX_API_KEY` – API-Key für Authentifizierung (optional, deaktiviert Auth wenn nicht gesetzt)
 - `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
 - `CORTEX_RATE_LIMIT` – Rate Limit (Requests pro Zeitfenster, Standard: 100, 0 = deaktiviert)
 - `CORTEX_RATE_LIMIT_WINDOW` – Rate Limit Zeitfenster (Standard: `1m`)
@@ -192,7 +191,6 @@ Beim Speichern von Memories werden automatisch Embeddings generiert (asynchron):
 # Memory speichern - Embedding wird automatisch generiert
 curl -X POST http://localhost:9123/seeds \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "myapp",
     "externalUserId": "user123",
@@ -208,7 +206,6 @@ Für bestehende Memories ohne Embeddings:
 ```bash
 # Generiere Embeddings für bis zu 10 Memories
 curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### Semantische Suche
@@ -218,7 +215,6 @@ Die Query-API nutzt automatisch semantische Suche wenn Embeddings verfügbar sin
 ```bash
 curl -X POST http://localhost:9123/seeds/query \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "myapp",
     "externalUserId": "user123",
@@ -253,7 +249,6 @@ Cortex unterstützt **Bundles** zur Organisation von Memories in logische Gruppe
 ```bash
 curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{"name": "Coffee Preferences"}'
 ```
 
@@ -261,7 +256,6 @@ curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" 
 
 ```bash
 curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### Memory in Bundle speichern
@@ -269,7 +263,6 @@ curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
 ```bash
 curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "content": "Lieblingskaffee: Latte mit Hafermilch",
     "bundleId": 1
@@ -281,7 +274,6 @@ curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
 ```bash
 curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "query": "Kaffee",
     "bundleId": 1,
@@ -308,7 +300,6 @@ import { CortexClient } from "@cortex/memory-sdk";
 
 const client = new CortexClient({
   baseUrl: "http://localhost:9123",
-  apiKey: "your-api-key",
   appId: "myapp",
   externalUserId: "user123",
 });
@@ -355,7 +346,6 @@ Vollständig kompatibel mit Neutron Memory API (gleiche Request/Response-Formate
 ```bash
 curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "content": "Der Nutzer mag Kaffee mit Hafermilch",
     "metadata": {"tags": ["preferences", "coffee"]},
@@ -367,7 +357,6 @@ curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
 ```bash
 curl -X POST http://localhost:9123/seeds \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "openclaw",
     "externalUserId": "user1",
@@ -391,7 +380,6 @@ curl -X POST http://localhost:9123/seeds \
 ```bash
 curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=user1" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "query": "Kaffee-Präferenzen",
     "limit": 5,
@@ -403,7 +391,6 @@ curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=us
 ```bash
 curl -X POST http://localhost:9123/seeds/query \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "openclaw",
     "externalUserId": "user1",
@@ -432,7 +419,6 @@ curl -X POST http://localhost:9123/seeds/query \
 
 ```bash
 curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
-  -H "X-API-Key: dein-key"
 ```
 
 Generiert Embeddings für bestehende Memories ohne Embedding. `batchSize` bestimmt, wie viele Memories pro Aufruf verarbeitet werden (Standard: 10, Max: 100).
@@ -533,7 +519,6 @@ curl http://localhost:9123/stats
 ```bash
 curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{"name": "Coffee Preferences"}'
 ```
 
@@ -541,21 +526,18 @@ curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" 
 
 ```bash
 curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `GET /bundles/:id` – Bundle abrufen
 
 ```bash
 curl "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `DELETE /bundles/:id` – Bundle löschen
 
 ```bash
 curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 **Hinweis:** Beim Löschen eines Bundles bleiben die Memories erhalten, `bundleId` wird auf `NULL` gesetzt.
@@ -568,7 +550,6 @@ Cortex unterstützt **Export und Import** von Daten:
 
 ```bash
 curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key" \
   -o cortex-export.json
 ```
 
@@ -577,7 +558,6 @@ curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
 ```bash
 curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d @cortex-export.json
 ```
 
@@ -589,14 +569,12 @@ Cortex unterstützt **Backup und Restore** der Datenbank:
 
 ```bash
 curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### Restore durchführen
 
 ```bash
 curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
-  -H "X-API-Key: dein-key"
 ```
 
 **⚠️ WICHTIG:** Nach dem Restore muss der Server neu gestartet werden!
@@ -610,11 +588,9 @@ Cortex bietet **Analytics-Endpunkte** für Dashboard-Daten:
 ```bash
 # Tenant-spezifische Analytics
 curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=30" \
-  -H "X-API-Key: dein-key"
 
 # Globale Analytics
 curl "http://localhost:9123/analytics?days=30" \
-  -H "X-API-Key: dein-key"
 ```
 
 **Verfügbare Metriken:**
@@ -722,10 +698,9 @@ const client = new NeutronClient({
     baseUrl: 'https://api-neutron.vanarchain.com'
 });
 
-// Nachher (Cortex) - nur Base-URL ändern
+// Nachher (Cortex) - nur Base-URL ändern, kein API-Key nötig
 import { CortexClient } from '@openclaw/cortex-sdk';
 const client = new CortexClient({
-    apiKey: 'your-key',
     baseUrl: 'http://localhost:9123' // Lokaler Server
 });
 
@@ -785,23 +760,7 @@ go test -cover ./...
 
 ### Authentifizierung
 
-Cortex unterstützt optionale API-Key-Authentifizierung:
-
-- **Ohne API-Key:** Alle Endpunkte sind öffentlich (Development-Modus)
-- **Mit API-Key:** Alle Endpunkte außer `/health` erfordern Authentifizierung
-
-**Verwendung:**
-
-```bash
-# Server mit API-Key starten
-CORTEX_API_KEY=your-secret-key go run ./...
-
-# API-Requests mit API-Key
-curl -H "Authorization: Bearer your-secret-key" \
-  http://localhost:9123/seeds \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"appId":"test","externalUserId":"user1","content":"Test"}'
-```
+Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar (typisch für lokale Self-hosted-Nutzung).
 
 ### Logging
 
@@ -814,7 +773,7 @@ Cortex verwendet strukturiertes Logging (log/slog):
 **Beispiel-Logs:**
 ```
 level=INFO msg="cortex server starting" addr=:9123 db=/path/to/cortex.db
-level=DEBUG msg="authenticated request" path=/seeds method=POST
+level=DEBUG msg="request" path=/seeds method=POST
 level=ERROR msg="remember insert error" error="..."
 ```
 
@@ -846,7 +805,6 @@ docker-compose up -d
 # Oder direkt mit Docker
 docker run -d \
   -p 9123:9123 \
-  -e CORTEX_API_KEY=your-secret-key \
   -v cortex-data:/data \
   cortex
 ```

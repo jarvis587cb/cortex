@@ -65,7 +65,6 @@ npm install @openclaw/cortex-sdk
 ```bash
 # .env
 CORTEX_API_URL=http://localhost:9123
-CORTEX_API_KEY=your-api-key-here
 ```
 
 ## Discord Integration
@@ -88,7 +87,6 @@ const discordClient = new Client({
 
 const cortex = new CortexClient({
     baseUrl: process.env.CORTEX_API_URL!,
-    apiKey: process.env.CORTEX_API_KEY!,
     appId: 'discord-bot',
     externalUserId: 'discord-user-123' // Kann dynamisch sein
 });
@@ -165,7 +163,6 @@ const app = new App({
 
 const cortex = new CortexClient({
     baseUrl: process.env.CORTEX_API_URL!,
-    apiKey: process.env.CORTEX_API_KEY!,
     appId: 'slack-bot'
 });
 
@@ -246,7 +243,6 @@ const whatsappClient = new Client({
 
 const cortex = new CortexClient({
     baseUrl: process.env.CORTEX_API_URL!,
-    apiKey: process.env.CORTEX_API_KEY!,
     appId: 'whatsapp-bot'
 });
 
@@ -328,7 +324,6 @@ app.use(express.json());
 
 const cortex = new CortexClient({
     baseUrl: process.env.CORTEX_API_URL!,
-    apiKey: process.env.CORTEX_API_KEY!,
     appId: 'web-interface'
 });
 
@@ -389,7 +384,6 @@ import { CortexClient } from '@openclaw/cortex-sdk';
 
 const cortex = new CortexClient({
     baseUrl: 'http://localhost:9123',
-    apiKey: 'your-key',
     appId: 'web-interface'
 });
 

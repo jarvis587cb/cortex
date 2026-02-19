@@ -48,8 +48,7 @@ store.CreateMemory(&mem) // Persistiert über Sessions hinweg
 ```typescript
 // Seed speichern (identisch zu Neutron)
 const client = new CortexClient({
-    baseUrl: 'http://localhost:9123',
-    apiKey: 'your-key'
+    baseUrl: 'http://localhost:9123'
 });
 
 await client.storeMemory({
@@ -191,7 +190,6 @@ const client = new NeutronClient({
 // Nachher (Cortex) - nur Base-URL ändern
 import { CortexClient } from '@openclaw/cortex-sdk';
 const client = new CortexClient({
-    apiKey: 'your-key',
     baseUrl: 'http://localhost:9123'
 });
 
@@ -505,7 +503,6 @@ const client = new NeutronClient({
 import { CortexClient } from '@openclaw/cortex-sdk';
 
 const client = new CortexClient({
-    apiKey: 'your-key',
     baseUrl: 'http://localhost:9123' // Lokaler Server
 });
 ```

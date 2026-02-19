@@ -93,24 +93,11 @@
 | `/backup` | ✅ | Erforderlich* |
 | `/restore` | ✅ | Erforderlich* |
 
-*Erforderlich nur wenn `CORTEX_API_KEY` gesetzt ist. Ohne API-Key ist Auth deaktiviert (Development-Modus).  
-**Header:** `X-API-Key: <key>` oder `Authorization: Bearer <key>` (beide unterstützt)
+*Keine Authentifizierung; alle Endpunkte sind ohne Auth erreichbar.
 
 ### Authentifizierung
 
-**Header-Format (beide unterstützt):**
-```
-X-API-Key: <api-key>
-```
-oder
-```
-Authorization: Bearer <api-key>
-```
-
-**Verhalten:**
-- Wenn `CORTEX_API_KEY` nicht gesetzt: Auth deaktiviert (Development)
-- Wenn `CORTEX_API_KEY` gesetzt: Auth erforderlich für alle Endpunkte außer `/health`
-- **Unterstützt:** `X-API-Key` Header (wie im SDK) und `Authorization: Bearer` Header (Rückwärtskompatibilität)
+Es gibt keine API-Key-Authentifizierung. Alle Endpunkte sind ohne Auth erreichbar (typisch für lokale Self-hosted-Nutzung).
 
 ## Bekannte Einschränkungen
 
@@ -129,24 +116,15 @@ Authorization: Bearer <api-key>
 ## Wichtige Erkenntnisse
 
 ### Authentifizierung
-- **Header-Format:** `Authorization: Bearer <key>` (nicht `X-API-Key`)
-- **Development-Modus:** Wenn `CORTEX_API_KEY` nicht gesetzt ist, ist Auth deaktiviert
-- **Production-Modus:** Mit gesetztem `CORTEX_API_KEY` ist Auth für alle Endpunkte außer `/health` erforderlich
+- Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar.
 
-### Getestete Endpunkte (ohne Auth)
+### Getestete Endpunkte
 - ✅ `/health` - Funktioniert
 - ✅ `/seeds` - Funktioniert
 - ✅ `/seeds/query` - Funktioniert
 - ✅ `/seeds/:id` (DELETE) - Funktioniert
 - ✅ `/stats` - Funktioniert
-
-### Endpunkte mit Auth-Anforderung
-- ⚠️ `/bundles` - Benötigt Auth wenn `CORTEX_API_KEY` gesetzt
-- ⚠️ `/analytics` - Benötigt Auth wenn `CORTEX_API_KEY` gesetzt
-- ⚠️ `/webhooks` - Benötigt Auth wenn `CORTEX_API_KEY` gesetzt
-- ⚠️ `/export` - Benötigt Auth wenn `CORTEX_API_KEY` gesetzt
-
-**Hinweis:** Diese Endpunkte sind im Code vorhanden und funktionieren, benötigen aber korrekte Authentifizierung wenn API-Key gesetzt ist.
+- ✅ `/bundles`, `/analytics`, `/webhooks`, `/export` - Funktionieren (ohne Auth)
 
 ## Fazit
 

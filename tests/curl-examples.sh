@@ -4,7 +4,6 @@
 # Beispiele für alle API-Endpunkte
 
 API_URL="${CORTEX_API_URL:-http://localhost:9123}"
-API_KEY="${CORTEX_API_KEY:-}"
 APP_ID="${CORTEX_APP_ID:-openclaw}"
 USER_ID="${CORTEX_USER_ID:-default}"
 
@@ -15,15 +14,6 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Cortex API Tests ===${NC}\n"
 
-# Auth Header (wenn API_KEY gesetzt)
-if [ -n "$API_KEY" ]; then
-    AUTH_HEADER="-H \"Authorization: Bearer $API_KEY\""
-    echo -e "${GREEN}Using API Key authentication${NC}\n"
-else
-    AUTH_HEADER=""
-    echo -e "${GREEN}No API Key set - using development mode${NC}\n"
-fi
-
 # Health Check
 echo -e "${BLUE}1. Health Check${NC}"
 curl -s "$API_URL/health" | jq '.' || curl -s "$API_URL/health"
@@ -33,7 +23,6 @@ echo -e "\n"
 echo -e "${BLUE}2. Memory speichern (Seeds-API)${NC}"
 STORE_RESPONSE=$(curl -s -X POST "$API_URL/seeds" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"appId\": \"$APP_ID\",
         \"externalUserId\": \"$USER_ID\",
@@ -48,7 +37,6 @@ echo -e "\n"
 echo -e "${BLUE}3. Memory-Suche${NC}"
 curl -s -X POST "$API_URL/seeds/query" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"appId\": \"$APP_ID\",
         \"externalUserId\": \"$USER_ID\",
@@ -56,7 +44,6 @@ curl -s -X POST "$API_URL/seeds/query" \
         \"limit\": 5
     }" | jq '.' || curl -s -X POST "$API_URL/seeds/query" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"appId\": \"$APP_ID\",
         \"externalUserId\": \"$USER_ID\",
@@ -68,8 +55,7 @@ echo -e "\n"
 # Memory löschen (wenn ID vorhanden)
 if [ -n "$MEMORY_ID" ] && [ "$MEMORY_ID" != "null" ] && [ "$MEMORY_ID" != "" ]; then
     echo -e "${BLUE}4. Memory löschen (ID: $MEMORY_ID)${NC}"
-    curl -s -X DELETE "$API_URL/seeds/$MEMORY_ID?appId=$APP_ID&externalUserId=$USER_ID" \
-        $AUTH_HEADER | jq '.' || curl -s -X DELETE "$API_URL/seeds/$MEMORY_ID?appId=$APP_ID&externalUserId=$USER_ID" $AUTH_HEADER
+    curl -s -X DELETE "$API_URL/seeds/$MEMORY_ID?appId=$APP_ID&externalUserId=$USER_ID" | jq '.' || curl -s -X DELETE "$API_URL/seeds/$MEMORY_ID?appId=$APP_ID&externalUserId=$USER_ID"
     echo -e "\n"
 fi
 
@@ -77,7 +63,6 @@ fi
 echo -e "${BLUE}5. Erinnerung speichern (Cortex API)${NC}"
 curl -s -X POST "$API_URL/remember" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"content\": \"Cortex API Test: $(date)\",
         \"type\": \"semantic\",
@@ -85,7 +70,6 @@ curl -s -X POST "$API_URL/remember" \
         \"importance\": 5
     }" | jq '.' || curl -s -X POST "$API_URL/remember" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"content\": \"Cortex API Test: $(date)\",
         \"type\": \"semantic\",
@@ -96,14 +80,13 @@ echo -e "\n"
 
 # Recall
 echo -e "${BLUE}6. Erinnerungen abrufen${NC}"
-curl -s "$API_URL/recall?q=Test&limit=5" $AUTH_HEADER | jq '.' || curl -s "$API_URL/recall?q=Test&limit=5" $AUTH_HEADER
+curl -s "$API_URL/recall?q=Test&limit=5" | jq '.' || curl -s "$API_URL/recall?q=Test&limit=5"
 echo -e "\n"
 
 # Entity - Fakt setzen
 echo -e "${BLUE}7. Fakt für Entity setzen${NC}"
 curl -s -X POST "$API_URL/entities?entity=user:test" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"key\": \"test_key\",
         \"value\": \"test_value\"
@@ -112,14 +95,13 @@ echo -e "\n"
 
 # Entity abrufen
 echo -e "${BLUE}8. Entity abrufen${NC}"
-curl -s "$API_URL/entities?name=user:test" $AUTH_HEADER | jq '.' || curl -s "$API_URL/entities?name=user:test" $AUTH_HEADER
+curl -s "$API_URL/entities?name=user:test" | jq '.' || curl -s "$API_URL/entities?name=user:test"
 echo -e "\n"
 
 # Relation hinzufügen
 echo -e "${BLUE}9. Relation hinzufügen${NC}"
 curl -s -X POST "$API_URL/relations" \
     -H "Content-Type: application/json" \
-    $AUTH_HEADER \
     -d "{
         \"from\": \"user:test1\",
         \"to\": \"user:test2\",
@@ -129,7 +111,7 @@ echo -e "\n"
 
 # Statistiken
 echo -e "${BLUE}10. Statistiken${NC}"
-curl -s "$API_URL/stats" $AUTH_HEADER | jq '.' || curl -s "$API_URL/stats" $AUTH_HEADER
+curl -s "$API_URL/stats" | jq '.' || curl -s "$API_URL/stats"
 echo -e "\n"
 
 echo -e "${GREEN}=== Tests abgeschlossen ===${NC}"
