@@ -1,0 +1,103 @@
+package models
+
+import "time"
+
+// Database Models
+
+type Memory struct {
+	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Type          string         `gorm:"not null;default:'semantic'" json:"type"`
+	Content       string         `gorm:"not null" json:"content"`
+	Entity        string         `json:"entity,omitempty"`
+	Tags          string         `json:"tags,omitempty"`
+	Importance    int            `gorm:"not null;default:5" json:"importance"`
+	AppID         string         `gorm:"column:app_id;not null;default:'openclaw';index" json:"app_id,omitempty"`
+	ExternalUserID string        `gorm:"column:external_user_id;not null;default:'default';index" json:"external_user_id,omitempty"`
+	Metadata      string         `gorm:"type:text" json:"-"`
+	MetadataMap   map[string]any  `gorm:"-" json:"metadata,omitempty"`
+	CreatedAt     time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+}
+
+type Entity struct {
+	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name      string         `gorm:"uniqueIndex;not null" json:"name"`
+	Data      string         `gorm:"type:text" json:"-"`
+	DataMap   map[string]any  `gorm:"-" json:"data"`
+	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
+}
+
+type Relation struct {
+	ID        int64      `gorm:"primaryKey;autoIncrement" json:"id"`
+	From      string     `gorm:"column:from_entity;not null" json:"from"`
+	To        string     `gorm:"column:to_entity;not null" json:"to"`
+	Type      string     `gorm:"column:type;not null" json:"type"`
+	ValidFrom *time.Time `gorm:"column:valid_from" json:"valid_from,omitempty"`
+	ValidTo   *time.Time `gorm:"column:valid_to" json:"valid_to,omitempty"`
+	CreatedAt time.Time  `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+}
+
+type Stats struct {
+	Memories  int64 `json:"memories"`
+	Entities  int64 `json:"entities"`
+	Relations int64 `json:"relations"`
+}
+
+// Request/Response Types
+
+type RememberRequest struct {
+	Content    string `json:"content"`
+	Type       string `json:"type,omitempty"`
+	Entity     string `json:"entity,omitempty"`
+	Tags       string `json:"tags,omitempty"`
+	Importance int    `json:"importance,omitempty"`
+}
+
+type RememberResponse struct {
+	ID int64 `json:"id"`
+}
+
+type FactRequest struct {
+	Key   string `json:"key"`
+	Value any    `json:"value"`
+}
+
+type RelationRequest struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Type string `json:"type"`
+}
+
+// Neutron-compatible Seeds API Types
+
+type StoreSeedRequest struct {
+	AppID         string         `json:"appId"`
+	ExternalUserID string        `json:"externalUserId"`
+	Content       string         `json:"content"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+type StoreSeedResponse struct {
+	ID      int64  `json:"id"`
+	Message string `json:"message"`
+}
+
+type QuerySeedRequest struct {
+	AppID         string `json:"appId"`
+	ExternalUserID string `json:"externalUserId"`
+	Query         string `json:"query"`
+	Limit         int    `json:"limit,omitempty"`
+}
+
+type QuerySeedResult struct {
+	ID         int64             `json:"id"`
+	Content    string            `json:"content"`
+	Metadata   map[string]any     `json:"metadata"`
+	CreatedAt  time.Time         `json:"created_at"`
+	Similarity float64           `json:"similarity"`
+}
+
+type DeleteSeedResponse struct {
+	Message string `json:"message"`
+	ID      int64  `json:"id"`
+}

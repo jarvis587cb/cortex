@@ -8,10 +8,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY *.go ./
+COPY . ./
 
 # Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cortex .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cortex ./cmd/cortex
 
 # Runtime stage
 FROM alpine:latest

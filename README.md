@@ -23,12 +23,12 @@ Cortex besteht aus folgenden Komponenten:
 - **Port**: 9123 (Standard) oder über `CORTEX_PORT`
 - **Technologie**: Go 1.23+, GORM, `github.com/glebarez/sqlite` (pure-Go)
 - **Code-Struktur**: 
-  - `main.go` – Server-Start und Routing
-  - `models.go` – Datenmodelle
-  - `store.go` – Datenbank-Operationen
-  - `handlers.go` – HTTP-Handler
-  - `helpers.go` – Utility-Funktionen
-  - `middleware.go` – HTTP-Middleware
+  - `cmd/cortex/main.go` – Server-Start und Routing
+  - `internal/models/` – Datenmodelle
+  - `internal/store/` – Datenbank-Operationen
+  - `internal/api/` – HTTP-Handler
+  - `internal/helpers/` – Utility-Funktionen
+  - `internal/middleware/` – HTTP-Middleware
 
 ### 2. Scripts (`scripts/`)
 
@@ -430,10 +430,10 @@ level=ERROR msg="remember insert error" error="..."
 
 ```bash
 # Go-Binary bauen
-go build -o cortex .
+go build -o cortex ./cmd/cortex
 
 # Oder direkt ausführen
-go run ./...
+go run ./cmd/cortex
 
 # Tests ausführen
 go test ./...
