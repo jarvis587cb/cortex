@@ -2,9 +2,12 @@ package helpers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // Constants
@@ -82,6 +85,33 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	WriteJSON(w, status, map[string]string{
 		"error": message,
 	})
+}
+
+// IsNotFoundError checks if an error is a "not found" error (gorm.ErrRecordNotFound)
+func IsNotFoundError(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+// ValidateTenantParams validates tenant parameters and writes error response if invalid
+// Returns true if valid, false otherwise (error already written)
+func ValidateTenantParams(w http.ResponseWriter, r *http.Request, req TenantParamExtractor, isQueryParam bool) (appID, externalUserID string, ok bool) {
+	appID, externalUserID = ExtractTenantParams(r, req)
+	
+	fields := map[string]string{
+		"appId":          appID,
+		"externalUserId": externalUserID,
+	}
+	
+	if field, valid := ValidateRequired(fields); !valid {
+		msg := "missing required field: " + field
+		if isQueryParam {
+			msg = "missing required query parameter: " + field
+		}
+		http.Error(w, msg, http.StatusBadRequest)
+		return "", "", false
+	}
+	
+	return appID, externalUserID, true
 }
 
 func ParseID(idStr string) (int64, error) {

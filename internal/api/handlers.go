@@ -2,14 +2,11 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"gorm.io/gorm"
 
 	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
@@ -124,7 +121,7 @@ func (h *Handlers) HandleSetFact(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{}
 	if err == nil && ent.Data != "" {
 		data = helpers.UnmarshalEntityData(ent.Data)
-	} else if err != nil && err != gorm.ErrRecordNotFound {
+	} else if err != nil && !helpers.IsNotFoundError(err) {
 		slog.Error("get entity error", "error", err, "entity", entity)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -155,7 +152,7 @@ func (h *Handlers) HandleGetEntity(w http.ResponseWriter, r *http.Request) {
 
 	ent, err := h.store.GetEntity(name)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if helpers.IsNotFoundError(err) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
@@ -414,7 +411,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 
 	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if helpers.IsNotFoundError(err) {
 			http.Error(w, "Memory not found", http.StatusNotFound)
 			return
 		}
@@ -553,7 +550,7 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 
 	bundle, err := h.store.GetBundle(id, appID, externalUserID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if helpers.IsNotFoundError(err) {
 			http.Error(w, "Bundle not found", http.StatusNotFound)
 			return
 		}
@@ -596,7 +593,7 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.DeleteBundle(id, appID, externalUserID); err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if helpers.IsNotFoundError(err) {
 			http.Error(w, "Bundle not found", http.StatusNotFound)
 			return
 		}
@@ -703,7 +700,7 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.DeleteWebhook(id); err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if helpers.IsNotFoundError(err) {
 			http.Error(w, "Webhook not found", http.StatusNotFound)
 			return
 		}
@@ -823,7 +820,7 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 
 	// Note: Restore requires server restart. We'll just copy the file
 	// and inform the user that a restart is needed.
-	if err := copyFile(backupPath, currentPath); err != nil {
+	if err := h.store.CopyFile(backupPath, currentPath); err != nil {
 		slog.Error("restore error", "error", err, "backupPath", backupPath, "currentPath", currentPath)
 		http.Error(w, "internal error: failed to restore database: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -835,28 +832,6 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 		"restored_to": currentPath,
 		"warning":     "Server must be restarted for changes to take effect",
 	})
-}
-
-// copyFile copies a file from src to dst
-func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
-	}
-
-	return nil
 }
 
 // Analytics API Handlers
