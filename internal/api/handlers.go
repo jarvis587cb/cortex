@@ -303,8 +303,10 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generiere Embedding asynchron (nicht-blockierend)
-	h.generateEmbeddingAsync(mem)
+	// Embedding synchron erzeugen, damit semantische Suche sofort Treffer liefert
+	if err := h.store.GenerateEmbeddingForMemory(mem); err != nil {
+		slog.Warn("embedding on store failed, memory still saved", "error", err, "memoryId", mem.ID)
+	}
 
 	// Trigger webhook asynchron
 	go h.triggerWebhook(webhooks.EventMemoryCreated, h.buildMemoryWebhookPayload(mem, appID, externalUserID, webhooks.EventMemoryCreated))
@@ -342,14 +344,19 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		seedIDs = []int64{}
 	}
 
-	// Versuche semantische Suche, fallback zu Textsuche
+	// Versuche semantische Suche, fallback zu Textsuche (bei Fehler oder 0 Treffern)
 	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
-	if err != nil {
-		// Fallback zu Textsuche
-		memories, err = h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
-		if err != nil {
-			helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
-			return
+	if err != nil || len(memories) == 0 {
+		// Fallback zu Textsuche (z. B. wenn noch keine Embeddings vorhanden oder semantisch nichts gefunden)
+		textMemories, textErr := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
+		if textErr != nil {
+			if err != nil {
+				helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
+				return
+			}
+			// err war nil (leere semantische Liste), nur Textsuche fehlgeschlagen → nutze leere Liste
+		} else {
+			memories = textMemories
 		}
 	}
 
