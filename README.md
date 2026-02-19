@@ -184,10 +184,11 @@ Cortex verwendet standardmäßig den lokalen Embedding-Service:
 - ✅ **Text-Support** - Optimiert für Text-Inhalte
 - ✅ **Schnell** - Keine Netzwerk-Latenz
 - ✅ **Hash-basierter Algorithmus** - Basierend auf Content-Analyse und Wort-Frequenzen
+- ✅ **Synonym-Erweiterung** - Begriffe wie Kaffee/Latte/Espresso werden verknüpft für bessere begriffliche Treffer
 
 ### Automatische Embedding-Generierung
 
-Beim Speichern von Memories werden automatisch Embeddings generiert (asynchron):
+Beim Speichern von Memories werden automatisch Embeddings generiert (synchron, damit Suche sofort funktioniert):
 
 ```bash
 # Memory speichern - Embedding wird automatisch generiert
@@ -203,7 +204,7 @@ curl -X POST http://localhost:9123/seeds \
 
 ### Batch-Embedding-Generierung
 
-Für bestehende Memories ohne Embeddings:
+Für bestehende Memories ohne Embeddings oder nach Änderungen am Embedder (z. B. neue Synonyme):
 
 ```bash
 # Generiere Embeddings für bis zu 10 Memories

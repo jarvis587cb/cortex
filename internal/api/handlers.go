@@ -407,6 +407,28 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Wenn nach Threshold 0 Treffer: Textsuche ergänzen (z. B. "oat milk" findet "oat milk lattes")
+	if len(results) == 0 && req.Query != "" {
+		textMemories, _ := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
+		for _, mem := range textMemories {
+			metadata := helpers.UnmarshalMetadata(mem.Metadata)
+			sim := helpers.DefaultSimilarity
+			if strings.Contains(strings.ToLower(mem.Content), strings.ToLower(req.Query)) {
+				sim = helpers.TextMatchSimilarity
+			}
+			if threshold > 0 && sim < threshold {
+				continue
+			}
+			results = append(results, models.QuerySeedResult{
+				ID:         mem.ID,
+				Content:    mem.Content,
+				Metadata:   metadata,
+				CreatedAt:  mem.CreatedAt,
+				Similarity: sim,
+			})
+		}
+	}
+
 	helpers.WriteJSON(w, http.StatusOK, results)
 }
 

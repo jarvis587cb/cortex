@@ -67,11 +67,16 @@ cmd_save() {
 
 # search - Semantic search (like neutron-memory.sh search "query" [limit] [threshold] [seedIds])
 # seedIds: optional, comma-separated list of seed IDs to limit search (e.g. "1,2,3")
+# Wenn nur 3 Argumente und das 3. enthält ein Komma: als seedIds interpretieren (Default-Threshold)
 cmd_search() {
     local query="${1:-}"
     local limit="${2:-30}"
-    local threshold="${3:-0.5}"
+    local threshold="${3:-${CORTEX_SEARCH_THRESHOLD:-0.2}}"
     local seed_ids="${4:-}"
+    if [ -z "$seed_ids" ] && [ -n "$threshold" ] && [[ "$threshold" == *","* ]]; then
+        seed_ids="$threshold"
+        threshold="0.2"
+    fi
     [ -z "$query" ] && die "Usage: $0 search \"<query>\" [limit] [threshold] [seedIds_comma_separated]"
     local seed_ids_json="null"
     if [ -n "$seed_ids" ] && has_jq 2>/dev/null; then

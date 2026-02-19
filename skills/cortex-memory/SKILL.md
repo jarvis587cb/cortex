@@ -77,12 +77,30 @@ Prüft, ob die Cortex-API unter `CORTEX_API_URL` erreichbar ist (GET /health).
 ### Semantische Suche
 
 ```bash
-./scripts/cortex-memory.sh search "what do I know about coffee" 10 0.5
+./scripts/cortex-memory.sh search "what do I know about coffee" 10 0.2
 ```
 
 - `query` (erforderlich)
 - `limit` (optional, Standard 30, 1–100)
-- `threshold` (optional, 0–1, Standard 0.5)
+- `threshold` (optional, 0–1, **Standard 0.2**). Mit dem lokalen Embedder liefern begriffliche Treffer (z. B. „coffee“ → „oat milk lattes“) oft Similarity unter 0.5; Standard 0.2 sorgt dafür, dass solche Treffer sichtbar sind. Für strenge Treffer 0.5 oder höher setzen.
+- Default-Threshold überschreiben: `CORTEX_SEARCH_THRESHOLD=0.5` (z. B. in `.env`).
+
+#### Semantische Suche vs. Textsuche
+
+- **Semantisch** (Embedding): Findet auch begrifflich verwandte Inhalte (z. B. „coffee“ → Einträge mit „latte“, „oat milk lattes“). Der lokale Embedder nutzt u. a. eine kleine Synonym-Erweiterung (Kaffee/Latte/Espresso etc.), damit solche Treffer eine höhere Similarity bekommen.
+- **Textsuche** (Fallback): Sucht das Query-Wort exakt im Inhalt (`LIKE %query%`). Ideal für konkrete Begriffe („oat milk“, „Blue Bottle“). Wird automatisch genutzt, wenn die semantische Suche keine Treffer liefert oder alle unter dem Threshold liegen.
+- **Praktisch**: Für „Was weiß ich über Kaffee?“ reicht meist `search "coffee" 10` (Default-Threshold 0.2). Für strenge Treffer nur bei exakter Wortüberlappung: `search "oat milk" 10 0.5`.
+
+### Embeddings nachziehen (Batch)
+
+Memories ohne Embedding (z. B. vor dem Sync-Fix oder nach Import) werden von der semantischen Suche ignoriert. Nach einem Update des Embedders (z. B. neue Synonyme) lohnt sich ein Batch-Lauf, damit bestehende Einträge die neue Similarity nutzen. Mit dem Batch-Endpoint kannst du Embeddings nachträglich erzeugen:
+
+```bash
+# Bis zu 100 Memories pro Aufruf (Standard 10)
+curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=100"
+```
+
+Antwort: `{"message":"Embeddings generation started"}`. Bei vielen Einträgen ohne Embedding den Aufruf mehrfach wiederholen, bis die Suche die gewünschten Treffer liefert.
 
 ## Agent Contexts (Session Persistence)
 

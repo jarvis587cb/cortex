@@ -6,6 +6,19 @@ import (
 	"strings"
 )
 
+// synonymExpandBegriffe: minimale Erweiterung für begriffliche Treffer (z. B. coffee ↔ latte).
+// Jedes Wort wird durch sich selbst + verwandte Begriffe ergänzt, damit Similarity steigt.
+var synonymExpandBegriffe = map[string][]string{
+	"coffee":   {"latte", "cappuccino", "espresso", "kaffee"},
+	"latte":    {"coffee", "cappuccino", "espresso"},
+	"lattes":   {"coffee", "cappuccino", "espresso"},
+	"cappuccino": {"coffee", "latte", "espresso"},
+	"espresso": {"coffee", "latte", "cappuccino"},
+	"kaffee":   {"coffee", "latte", "espresso"},
+	"tea":      {"tee", "chai"},
+	"tee":      {"tea", "chai"},
+}
+
 // EmbeddingService interface für verschiedene Embedding-Provider
 type EmbeddingService interface {
 	GenerateEmbedding(content string, contentType string) ([]float32, error)
@@ -25,6 +38,34 @@ func NewLocalEmbeddingService() *LocalEmbeddingService {
 	}
 }
 
+// expandWithSynonyms hängt verwandte Begriffe an den normalisierten Text an,
+// damit z. B. "oat milk lattes" und "coffee" eine höhere Similarity bekommen.
+func expandWithSynonyms(normalized string) string {
+	words := strings.Fields(normalized)
+	seen := make(map[string]bool)
+	for _, w := range words {
+		seen[w] = true
+	}
+	var extra []string
+	for _, w := range words {
+		if len(w) <= 2 {
+			continue
+		}
+		if syns, ok := synonymExpandBegriffe[w]; ok {
+			for _, s := range syns {
+				if !seen[s] {
+					seen[s] = true
+					extra = append(extra, s)
+				}
+			}
+		}
+	}
+	if len(extra) == 0 {
+		return normalized
+	}
+	return normalized + " " + strings.Join(extra, " ")
+}
+
 // GenerateEmbedding generiert ein lokales Embedding basierend auf Content-Analyse
 // Verwendet einen verbesserten Hash-basierten Ansatz mit Wort-Frequenzen
 func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType string) ([]float32, error) {
@@ -32,6 +73,7 @@ func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType st
 
 	// Normalisiere Content (lowercase, entferne Sonderzeichen)
 	normalized := strings.ToLower(content)
+	normalized = expandWithSynonyms(normalized)
 
 	// Berechne verschiedene Features für bessere Semantik
 	contentHash := l.hashString(normalized)

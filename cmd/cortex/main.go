@@ -131,7 +131,7 @@ func main() {
 	mux.HandleFunc("/analytics", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleAnalytics, http.MethodGet))))
 
 	// Agent Contexts API (Neutron-compatible, with rate limiting)
-	mux.HandleFunc("/agent-contexts/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGetAgentContext, http.MethodGet))))
+	// Exact /agent-contexts first so GET/POST without trailing slash match
 	mux.HandleFunc("/agent-contexts", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -142,6 +142,7 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+	mux.HandleFunc("/agent-contexts/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGetAgentContext, http.MethodGet))))
 
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {
