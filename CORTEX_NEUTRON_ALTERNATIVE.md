@@ -74,7 +74,7 @@ await client.storeMemory({
 ```bash
 # Agent 1 speichert Memory
 curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
-  -H "X-API-Key: key" \
+  -H "Content-Type: application/json" \
   -d '{"content": "User mag Kaffee"}'
 
 # Server wird neu gestartet
@@ -82,7 +82,7 @@ curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
 
 # Agent 2 kann dasselbe Memory abfragen
 curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=user1" \
-  -H "X-API-Key: key" \
+  -H "Content-Type: application/json" \
   -d '{"query": "Kaffee", "limit": 5}'
 ```
 
@@ -288,12 +288,10 @@ const memories = await client2.queryMemory({
 
 ```bash
 # Maschine 1: Datenbank exportieren
-curl "http://localhost:9123/export?appId=openclaw&externalUserId=user1" \
-  -H "X-API-Key: key" > backup.json
+curl "http://localhost:9123/export?appId=openclaw&externalUserId=user1" > backup.json
 
 # Maschine 2: Datenbank importieren
 curl -X POST "http://localhost:9123/import?appId=openclaw&externalUserId=user1" \
-  -H "X-API-Key: key" \
   -H "Content-Type: application/json" \
   -d @backup.json
 
@@ -513,7 +511,6 @@ const client = new CortexClient({
 # 1. Export aus Neutron (falls möglich)
 # 2. Import in Cortex
 curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user1" \
-  -H "X-API-Key: key" \
   -H "Content-Type: application/json" \
   -d @neutron-export.json
 ```
@@ -521,9 +518,8 @@ curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user1" \
 ### Schritt 3: Code anpassen
 
 **Minimale Änderungen:**
-- Base-URL ändern
-- API-Key-Format anpassen (optional)
-- Header-Name: `Authorization: Bearer` → `X-API-Key` (optional, kann beides unterstützt werden)
+- Base-URL auf Cortex (z. B. `http://localhost:9123`) ändern
+- Auth-Header entfernen (Cortex benötigt keinen API-Key)
 
 **API-Calls bleiben identisch:**
 ```typescript

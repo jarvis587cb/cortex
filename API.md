@@ -14,13 +14,7 @@ Vollständige API-Referenz für Cortex Memory API - Neutron-kompatibel.
 
 ## Authentifizierung
 
-Alle Endpunkte (außer `/health`) erfordern Authentifizierung über den `X-API-Key` Header:
-
-```http
-X-API-Key: dein-api-key
-```
-
-**Hinweis:** Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar.
+Es gibt keine API-Key-Authentifizierung. Alle Endpunkte (inkl. `/health`) sind ohne Auth erreichbar – typisch für lokale Self-hosted-Nutzung.
 
 ## Basis-URL
 
@@ -71,7 +65,6 @@ Speichert ein neues Memory (Seed) und generiert automatisch ein Embedding.
 # Mit Query-Parametern (Neutron-Style)
 curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "content": "Der Benutzer mag Kaffee",
     "metadata": {"source": "chat"}
@@ -80,7 +73,6 @@ curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
 # Mit Body-Parametern (Cortex-Style)
 curl -X POST http://localhost:9123/seeds \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "myapp",
     "externalUserId": "user123",
@@ -134,7 +126,6 @@ Führt semantische Suche durch (mit Embeddings) oder fällt auf Textsuche zurüc
 # Mit Query-Parametern (Neutron-Style)
 curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "query": "Was mag der Benutzer?",
     "limit": 5
@@ -143,7 +134,6 @@ curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user1
 # Mit Body-Parametern (Cortex-Style)
 curl -X POST http://localhost:9123/seeds/query \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "appId": "myapp",
     "externalUserId": "user123",
@@ -172,7 +162,6 @@ Löscht ein Memory anhand der ID.
 
 ```bash
 curl -X DELETE "http://localhost:9123/seeds/42?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `POST /seeds/generate-embeddings` - Embeddings batch-generieren
@@ -193,7 +182,6 @@ Generiert Embeddings für alle Memories ohne Embedding.
 
 ```bash
 curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=20" \
-  -H "X-API-Key: dein-key"
 ```
 
 ## Bundles API
@@ -233,7 +221,6 @@ Erstellt ein neues Bundle.
 ```bash
 curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{"name": "Coffee Preferences"}'
 ```
 
@@ -269,7 +256,6 @@ Listet alle Bundles für einen Tenant auf.
 
 ```bash
 curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `GET /bundles/:id` - Bundle abrufen
@@ -295,7 +281,6 @@ Ruft ein Bundle anhand der ID ab.
 
 ```bash
 curl "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `DELETE /bundles/:id` - Bundle löschen
@@ -318,7 +303,6 @@ Löscht ein Bundle. **Hinweis:** Memories bleiben erhalten, `bundleId` wird auf 
 
 ```bash
 curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 ```
 
 ## Cortex API
@@ -524,13 +508,11 @@ Prüft den API-Status. **Keine Authentifizierung erforderlich.**
 # 1. Bundle erstellen
 BUNDLE_ID=$(curl -s -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{"name": "Coffee Preferences"}' | jq -r '.id')
 
 # 2. Memory in Bundle speichern
 MEMORY_ID=$(curl -s -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d "{
     \"content\": \"Lieblingskaffee: Latte mit Hafermilch\",
     \"metadata\": {\"source\": \"chat\"},
@@ -540,7 +522,6 @@ MEMORY_ID=$(curl -s -X POST "http://localhost:9123/seeds?appId=myapp&externalUse
 # 3. Memories in Bundle suchen
 curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d "{
     \"query\": \"Kaffee\",
     \"bundleId\": $BUNDLE_ID,
@@ -609,7 +590,7 @@ export CORTEX_RATE_LIMIT=0
 
 ### Verhalten
 
-- **Client-Identifikation:** Basierend auf API-Key oder IP-Adresse
+- **Client-Identifikation:** Basierend auf Request-Header (falls gesetzt) oder IP-Adresse
 - **Token-Bucket:** Proportionale Token-Auffüllung über Zeitfenster
 - **Response:** `429 Too Many Requests` mit `Retry-After` Header
 - **Health-Check:** `/health` Endpunkt ist von Rate Limiting ausgenommen
@@ -647,7 +628,6 @@ Verfügbare Event-Typen:
 ```bash
 curl -X POST http://localhost:9123/webhooks \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d '{
     "url": "https://example.com/webhook",
     "events": ["memory.created", "memory.deleted"],
@@ -673,14 +653,12 @@ curl -X POST http://localhost:9123/webhooks \
 
 ```bash
 curl "http://localhost:9123/webhooks?appId=myapp" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### Webhook löschen
 
 ```bash
 curl -X DELETE "http://localhost:9123/webhooks/1" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### Webhook-Payload
@@ -760,7 +738,6 @@ Exportiert alle Daten (Memories, Bundles, Webhooks) für einen Tenant als JSON.
 
 ```bash
 curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key" \
   -o cortex-export.json
 ```
 
@@ -800,7 +777,6 @@ Importiert Daten aus einem Export-File.
 ```bash
 curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dein-key" \
   -d @cortex-export.json
 ```
 
@@ -828,11 +804,9 @@ Erstellt ein Backup der SQLite-Datenbank.
 ```bash
 # Backup mit Standard-Pfad
 curl -X POST "http://localhost:9123/backup" \
-  -H "X-API-Key: dein-key"
 
 # Backup mit benutzerdefiniertem Pfad
 curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
-  -H "X-API-Key: dein-key"
 ```
 
 ### `POST /restore` - Datenbank wiederherstellen
@@ -858,7 +832,6 @@ Stellt die Datenbank aus einem Backup wieder her.
 
 ```bash
 curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
-  -H "X-API-Key: dein-key"
 ```
 
 **Hinweis:** Der Restore-Prozess kopiert die Backup-Datei über die aktuelle Datenbank. Ein Server-Neustart ist erforderlich, damit die Änderungen wirksam werden.
@@ -917,15 +890,12 @@ Ruft Analytics-Daten für einen Tenant oder global ab.
 ```bash
 # Tenant-spezifische Analytics (letzte 30 Tage)
 curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123" \
-  -H "X-API-Key: dein-key"
 
 # Tenant-spezifische Analytics (letzte 7 Tage)
 curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=7" \
-  -H "X-API-Key: dein-key"
 
 # Globale Analytics (alle Tenants)
 curl "http://localhost:9123/analytics?days=30" \
-  -H "X-API-Key: dein-key"
 ```
 
 **Verfügbare Metriken:**

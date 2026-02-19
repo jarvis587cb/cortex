@@ -201,7 +201,7 @@ analytics, err := store.GetAnalytics(appID, externalUserID, days)
 
 **Cortex-Lösung:**
 - ✅ Multi-Tenant-Isolation: Jeder Tenant hat eigenes Memory
-- ✅ API-Key-Authentifizierung (optional)
+- ✅ Keine API-Key-Pflicht (lokal ohne Auth)
 - ✅ Webhooks für Audit-Trail
 
 ```go
@@ -255,7 +255,7 @@ const memories = await cortex.queryMemory("etwas", {
 - ✅ **Query-bare Knowledge Objects**: Semantische Suche statt Volltext
 - ✅ **Wirtschaftlichkeit**: Reduzierte Token-Kosten durch relevante Memory-Abfragen
 - ✅ **Memory-Historie**: Timestamps, Analytics, Webhooks für Nachvollziehbarkeit
-- ✅ **Kontrolle**: Multi-Tenant-Isolation, API-Key-Auth, Export/Import
+- ✅ **Kontrolle**: Multi-Tenant-Isolation, Export/Import (keine Auth-Pflicht)
 
 **Cortex macht OpenClaw zu etwas Dauerhaftem. Wissen bleibt über Prozesse hinweg erhalten. Memory überlebt Neustarts. Was der Agent lernt, akkumuliert sich über die Zeit.**
 

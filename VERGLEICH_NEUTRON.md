@@ -38,7 +38,7 @@ Cortex ist eine **vollständig kompatible, lokale Alternative** zur Neutron Memo
 | **Setup** | ✅ Sofort verfügbar | ⚠️ Installation erforderlich | **Vorteil Neutron:** Kein Setup |
 | **Embedding-Service** | ✅ Immer Jina v4 | ✅ Vollständig lokal | **Vorteil Cortex:** Keine Cloud-Abhängigkeit |
 | **Performance** | Sub-200ms (Cloud) | Abhängig von Hardware | **Vorteil Neutron:** Garantierte Performance |
-| **Authentifizierung** | ✅ Bearer Token (`nk_...`) | ✅ API-Key (`X-API-Key`) | **Unterschied:** Header-Format |
+| **Authentifizierung** | ✅ Bearer Token (`nk_...`) | ❌ Keine (lokal) | **Unterschied:** Cortex ohne Auth |
 | **Sprachen** | ✅ 100+ (Jina v4) | ✅ Alle Sprachen (lokal) | ✅ Lokaler Service unterstützt alle Sprachen |
 
 ### ✅ Alle optionalen Features implementiert
@@ -73,13 +73,10 @@ fetch(`${API}/seeds?appId=${AGENT_ID}&externalUserId=${AGENT_IDENTIFIER}`, {
 
 **Cortex (kompatibel):**
 ```javascript
-// Gleiche Query-Parameter-Struktur
+// Gleiche Query-Parameter-Struktur, ohne Auth-Header
 fetch(`http://localhost:9123/seeds?appId=${AGENT_ID}&externalUserId=${AGENT_IDENTIFIER}`, {
   method: 'POST',
-  headers: {
-    'X-API-Key': 'dein-key',  // Unterschied: Header-Name
-    'Content-Type': 'application/json'
-  },
+  headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     content: "Mike's usual coffee order...",
     metadata: { userId: "user_mike", type: "preference" }
@@ -87,7 +84,7 @@ fetch(`http://localhost:9123/seeds?appId=${AGENT_ID}&externalUserId=${AGENT_IDEN
 });
 ```
 
-**Kompatibilität:** ✅ **99%** - Nur Header-Name unterscheidet sich (`Authorization: Bearer` vs `X-API-Key`)
+**Kompatibilität:** ✅ **99%** – Nur Auth: Neutron nutzt Bearer Token, Cortex hat keine Authentifizierung.
 
 ### Response-Format Vergleich
 
@@ -234,12 +231,11 @@ const client = new NeutronClient({
 **Nachher (Cortex):**
 ```typescript
 const client = new CortexClient({
-  apiKey: 'dein-key',
   baseUrl: 'http://localhost:9123'
 });
 ```
 
-**Änderungen:** Nur Base-URL und API-Key-Format
+**Änderungen:** Nur Base-URL (kein API-Key bei Cortex)
 
 ## Empfehlungen
 
