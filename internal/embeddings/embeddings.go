@@ -28,15 +28,15 @@ func NewLocalEmbeddingService() *LocalEmbeddingService {
 // Verwendet einen verbesserten Hash-basierten Ansatz mit Wort-Frequenzen
 func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType string) ([]float32, error) {
 	embedding := make([]float32, l.dimension)
-	
+
 	// Normalisiere Content (lowercase, entferne Sonderzeichen)
 	normalized := strings.ToLower(content)
-	
+
 	// Berechne verschiedene Features für bessere Semantik
 	contentHash := l.hashString(normalized)
 	wordCount := len(strings.Fields(normalized))
 	charCount := len(normalized)
-	
+
 	// Extrahiere häufige Wörter und deren Positionen
 	words := strings.Fields(normalized)
 	wordHashes := make([]uint32, 0, len(words))
@@ -45,22 +45,22 @@ func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType st
 			wordHashes = append(wordHashes, l.hashString(word))
 		}
 	}
-	
+
 	// Fülle Embedding-Vektor mit verschiedenen Features
 	for i := 0; i < l.dimension; i++ {
 		var value float32
-		
+
 		// Basis-Hash basierend auf Position
 		hash := contentHash + uint32(i*31)
-		
+
 		// Füge Wort-Frequenz-Informationen hinzu
 		if i < len(wordHashes) {
 			hash ^= wordHashes[i%len(wordHashes)]
 		}
-		
+
 		// Normalisiere basierend auf Content-Länge
-		normalizedHash := float32(hash % 10000) / 10000.0
-		
+		normalizedHash := float32(hash%10000) / 10000.0
+
 		// Füge statistische Features hinzu
 		if i%3 == 0 {
 			// Wortanzahl-Feature
@@ -72,14 +72,14 @@ func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType st
 			// Reiner Hash-Wert
 			value = normalizedHash
 		}
-		
+
 		// Normalisiere auf [-1, 1] Bereich
 		embedding[i] = value*2.0 - 1.0
 	}
-	
+
 	// Normalisiere den Vektor für bessere Cosine-Similarity
 	embedding = Normalize(embedding)
-	
+
 	return embedding, nil
 }
 
