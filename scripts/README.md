@@ -4,6 +4,24 @@ Hilfsscripts für die Cortex Memory API.
 
 ## Scripts
 
+### `cortex-memory.sh` – Neutron-kompatibles Script (OpenClaw-Guide)
+
+Gleiche Befehle wie im [OpenClaw Integration Guide](https://openclaw.vanarchain.com/guide-openclaw) (Neutron): `test`, `save`, `search`, `context-create`, `context-list`, `context-get`. Nutzt Cortex-API (kein API-Key).
+
+**Verwendung:**
+```bash
+./scripts/cortex-memory.sh test
+./scripts/cortex-memory.sh save "content" "[metadata_json]"
+./scripts/cortex-memory.sh search "query" [limit] [threshold]
+./scripts/cortex-memory.sh context-create "agentId" [memoryType] [payload_json]
+./scripts/cortex-memory.sh context-list [agentId]
+./scripts/cortex-memory.sh context-get <id>
+```
+
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` (oder `NEUTRON_API_URL`, `NEUTRON_AGENT_ID`, `YOUR_AGENT_IDENTIFIER`).
+
+Siehe [skills/cortex-memory/SKILL.md](../skills/cortex-memory/SKILL.md) für Details und Hooks (Auto-Recall / Auto-Capture).
+
 ### `cortex-cli.sh` – CLI-Tool
 
 Bash-CLI für die Cortex-API.

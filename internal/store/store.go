@@ -44,7 +44,7 @@ func NewCortexStore(dbPath string) (*CortexStore, error) {
 }
 
 func (s *CortexStore) migrate() error {
-	if err := s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{}); err != nil {
+	if err := s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{}, &models.AgentContext{}); err != nil {
 		return err
 	}
 
@@ -87,6 +87,9 @@ func (s *CortexStore) applyOptionalFilters(dbQuery *gorm.DB, filters map[string]
 	if appID, ok := filters["appID"].(string); ok && appID != "" {
 		dbQuery = dbQuery.Where("app_id = ? OR app_id = ?", appID, "")
 	}
+	if seedIDs, ok := filters["seedIDs"].([]int64); ok && len(seedIDs) > 0 {
+		dbQuery = dbQuery.Where("id IN ?", seedIDs)
+	}
 	return dbQuery
 }
 
@@ -115,13 +118,14 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 	return memories, err
 }
 
-func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 
 	filters := map[string]interface{}{
 		"query":    query,
 		"bundleID": bundleID,
+		"seedIDs":  seedIDs,
 	}
 	dbQuery = s.applyOptionalFilters(dbQuery, filters)
 
@@ -130,25 +134,28 @@ func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, que
 }
 
 // SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
-func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64) ([]models.Memory, error) {
 	// Generiere Embedding für Query
 	embeddingService := embeddings.GetEmbeddingService()
 	queryEmbedding, err := embeddingService.GenerateEmbedding(query, "text/plain")
 	if err != nil {
 		// Fallback zu Textsuche bei Fehler
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs)
 	}
 
 	if queryEmbedding == nil {
 		// Fallback zu Textsuche wenn kein Embedding generiert werden konnte
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs)
 	}
 
-	// Hole alle Memories für diesen Tenant (und optional Bundle)
+	// Hole alle Memories für diesen Tenant (und optional Bundle, optional seedIDs)
 	var allMemories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 	if bundleID != nil {
 		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
+	}
+	if len(seedIDs) > 0 {
+		dbQuery = dbQuery.Where("id IN ?", seedIDs)
 	}
 	err = dbQuery.Find(&allMemories).Error
 	if err != nil {
@@ -418,4 +425,35 @@ func (s *CortexStore) UpdateWebhook(webhook *models.Webhook) error {
 
 func (s *CortexStore) DeleteWebhook(id int64) error {
 	return s.db.Delete(&models.Webhook{}, id).Error
+}
+
+// Agent Contexts (Neutron-compatible)
+
+func (s *CortexStore) CreateAgentContext(ctx *models.AgentContext) error {
+	return s.db.Create(ctx).Error
+}
+
+func (s *CortexStore) ListAgentContexts(appID, externalUserID, agentID, memoryType, tagsFilter string) ([]models.AgentContext, error) {
+	var list []models.AgentContext
+	dbQuery := s.db.Model(&models.AgentContext{}).Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+	if agentID != "" {
+		dbQuery = dbQuery.Where("agent_id = ?", agentID)
+	}
+	if memoryType != "" {
+		dbQuery = dbQuery.Where("memory_type = ?", memoryType)
+	}
+	if tagsFilter != "" {
+		dbQuery = dbQuery.Where("tags LIKE ?", "%"+tagsFilter+"%")
+	}
+	err := dbQuery.Order("updated_at DESC").Find(&list).Error
+	return list, err
+}
+
+func (s *CortexStore) GetAgentContextByID(id int64) (*models.AgentContext, error) {
+	var ctx models.AgentContext
+	err := s.db.First(&ctx, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &ctx, nil
 }

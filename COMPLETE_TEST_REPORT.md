@@ -1,11 +1,13 @@
 # Vollständiger Test-Report: Cortex
 
 **Datum:** 2026-02-19  
-**Status:** ✅ Alle Tests erfolgreich nach Fixes
+**Status:** ✅ Alle Tests erfolgreich nach Fixes  
+
+**Hinweis:** API-Key-Authentifizierung wurde später aus dem Projekt entfernt; alle Endpunkte sind seitdem ohne Auth erreichbar. Dieser Report beschreibt den Stand zum Testzeitpunkt.
 
 ## Durchgeführte Fixes
 
-### 1. ✅ X-API-Key Support hinzugefügt
+### 1. ✅ X-API-Key Support hinzugefügt (später entfernt)
 
 **Problem:** SDK verwendete `X-API-Key` Header, Middleware erwartete nur `Authorization` Header.
 

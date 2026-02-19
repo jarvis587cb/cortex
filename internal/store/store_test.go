@@ -146,7 +146,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	store.CreateMemory(mem2)
 	store.CreateMemory(mem3)
 
-	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "likes", nil, 10)
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "likes", nil, 10, nil)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenant failed: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	}
 
 	// Verify tenant isolation
-	memories2, _ := store.SearchMemoriesByTenantAndBundle("app1", "user2", "likes", nil, 10)
+	memories2, _ := store.SearchMemoriesByTenantAndBundle("app1", "user2", "likes", nil, 10, nil)
 	if len(memories2) != 1 {
 		t.Errorf("expected 1 memory for user2, got %d", len(memories2))
 	}
@@ -448,7 +448,7 @@ func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
 	store.CreateMemory(mem3)
 
 	// Search without bundle filter
-	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "preference", nil, 10)
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "preference", nil, 10, nil)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantAndBundle failed: %v", err)
 	}
@@ -457,7 +457,7 @@ func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
 	}
 
 	// Search with bundle filter
-	bundleMemories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "coffee", &bundle.ID, 10)
+	bundleMemories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantAndBundle with bundle failed: %v", err)
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -335,11 +336,17 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		limit = helpers.DefaultQueryLimit
 	}
 
+	// Optional: limit search to specific seed IDs (Neutron-compatible)
+	seedIDs := req.SeedIDs
+	if seedIDs == nil {
+		seedIDs = []int64{}
+	}
+
 	// Versuche semantische Suche, fallback zu Textsuche
-	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit)
+	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
 	if err != nil {
 		// Fallback zu Textsuche
-		memories, err = h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit)
+		memories, err = h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
 		if err != nil {
 			helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
 			return
@@ -351,6 +358,15 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	queryEmbedding, err := embeddingService.GenerateEmbedding(req.Query, "text/plain")
 	if err != nil {
 		slog.Warn("failed to generate query embedding, using text similarity", "error", err)
+	}
+
+	// Threshold 0-1: only return results with similarity >= threshold (Neutron-compatible; 0 = no filter)
+	threshold := req.Threshold
+	if threshold < 0 {
+		threshold = 0
+	}
+	if threshold > 1 {
+		threshold = 1
 	}
 
 	results := make([]models.QuerySeedResult, 0, len(memories))
@@ -369,6 +385,10 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(strings.ToLower(mem.Content), strings.ToLower(req.Query)) {
 				similarity = helpers.TextMatchSimilarity
 			}
+		}
+
+		if threshold > 0 && similarity < threshold {
+			continue
 		}
 
 		results = append(results, models.QuerySeedResult{
@@ -789,4 +809,132 @@ func (h *Handlers) triggerWebhook(event webhooks.EventType, data map[string]inte
 
 	// Deliver webhooks asynchronously
 	webhooks.DeliverWebhooksAsync(configs, event, data)
+}
+
+// HandleCreateAgentContext creates an agent context (Neutron-compatible)
+func (h *Handlers) HandleCreateAgentContext(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateAgentContextRequest
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
+		return
+	}
+	appID, externalUserID := helpers.ExtractTenantParams(r, &req.TenantRequest)
+	fields := map[string]string{
+		"appId": appID, "externalUserId": externalUserID,
+		"agentId": req.AgentID, "memoryType": req.MemoryType,
+	}
+	if field, ok := helpers.ValidateRequired(fields); !ok {
+		http.Error(w, "missing required field: "+field, http.StatusBadRequest)
+		return
+	}
+	memType := strings.ToLower(strings.TrimSpace(req.MemoryType))
+	allowed := map[string]bool{"episodic": true, "semantic": true, "procedural": true, "working": true}
+	if !allowed[memType] {
+		http.Error(w, "memoryType must be one of: episodic, semantic, procedural, working", http.StatusBadRequest)
+		return
+	}
+	payloadStr := ""
+	if len(req.Payload) > 0 {
+		b, _ := json.Marshal(req.Payload)
+		payloadStr = string(b)
+	}
+	tagsStr := strings.Join(req.Tags, ",")
+	ctx := &models.AgentContext{
+		AppID:          appID,
+		ExternalUserID: externalUserID,
+		AgentID:        req.AgentID,
+		MemoryType:     memType,
+		Payload:        payloadStr,
+		Tags:           tagsStr,
+	}
+	if err := h.store.CreateAgentContext(ctx); err != nil {
+		helpers.HandleInternalErrorSlog(w, "create agent context error", "error", err)
+		return
+	}
+	helpers.WriteJSON(w, http.StatusCreated, map[string]any{
+		"id":         ctx.ID,
+		"message":    "Agent context created",
+		"created_at": ctx.CreatedAt,
+	})
+}
+
+// HandleListAgentContexts lists agent contexts (Neutron-compatible)
+func (h *Handlers) HandleListAgentContexts(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if appID == "" || externalUserID == "" {
+		http.Error(w, "missing required query parameter: appId and externalUserId", http.StatusBadRequest)
+		return
+	}
+	agentID := helpers.GetQueryParam(r, "agentId")
+	memoryType := helpers.GetQueryParam(r, "memoryType")
+	tags := helpers.GetQueryParam(r, "tags")
+	list, err := h.store.ListAgentContexts(appID, externalUserID, agentID, memoryType, tags)
+	if err != nil {
+		helpers.HandleInternalErrorSlog(w, "list agent contexts error", "error", err)
+		return
+	}
+	resp := make([]models.AgentContextResponse, 0, len(list))
+	for _, c := range list {
+		payloadMap := map[string]any{}
+		if c.Payload != "" {
+			_ = json.Unmarshal([]byte(c.Payload), &payloadMap)
+		}
+		tagsList := []string{}
+		if c.Tags != "" {
+			tagsList = strings.Split(c.Tags, ",")
+			for i := range tagsList {
+				tagsList[i] = strings.TrimSpace(tagsList[i])
+			}
+		}
+		resp = append(resp, models.AgentContextResponse{
+			ID:             c.ID,
+			AppID:          c.AppID,
+			ExternalUserID: c.ExternalUserID,
+			AgentID:        c.AgentID,
+			MemoryType:     c.MemoryType,
+			Payload:        payloadMap,
+			Tags:           tagsList,
+			CreatedAt:      c.CreatedAt,
+			UpdatedAt:      c.UpdatedAt,
+		})
+	}
+	helpers.WriteJSON(w, http.StatusOK, resp)
+}
+
+// HandleGetAgentContext returns one agent context by ID (Neutron-compatible)
+func (h *Handlers) HandleGetAgentContext(w http.ResponseWriter, r *http.Request) {
+	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/agent-contexts/")
+	if !ok {
+		return
+	}
+	ctx, err := h.store.GetAgentContextByID(id)
+	if err != nil {
+		if helpers.HandleNotFoundError(w, err, "Agent context") {
+			return
+		}
+		helpers.HandleInternalErrorSlog(w, "get agent context error", "error", err, "id", id)
+		return
+	}
+	payloadMap := map[string]any{}
+	if ctx.Payload != "" {
+		_ = json.Unmarshal([]byte(ctx.Payload), &payloadMap)
+	}
+	tagsList := []string{}
+	if ctx.Tags != "" {
+		tagsList = strings.Split(ctx.Tags, ",")
+		for i := range tagsList {
+			tagsList[i] = strings.TrimSpace(tagsList[i])
+		}
+	}
+	helpers.WriteJSON(w, http.StatusOK, models.AgentContextResponse{
+		ID:             ctx.ID,
+		AppID:          ctx.AppID,
+		ExternalUserID: ctx.ExternalUserID,
+		AgentID:        ctx.AgentID,
+		MemoryType:     ctx.MemoryType,
+		Payload:        payloadMap,
+		Tags:           tagsList,
+		CreatedAt:      ctx.CreatedAt,
+		UpdatedAt:      ctx.UpdatedAt,
+	})
 }

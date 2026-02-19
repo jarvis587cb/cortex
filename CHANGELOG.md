@@ -6,17 +6,17 @@
 - ✅ Go Unit-Tests für Store- und Helper-Funktionen
 - ✅ Docker-Support (Dockerfile + docker-compose.yml)
 - ✅ Strukturiertes Logging mit log/slog
-- ✅ Optionale API-Key-Authentifizierung
 - ✅ CI/CD-Pipeline (GitHub Actions)
 - ✅ Projektanalyse-Dokumentation (ANALYSE.md)
 
 ### Changed
 - 🔄 Logging von `log` zu `log/slog` migriert
 - 🔄 Verbesserte Fehlerbehandlung mit strukturierten Logs
+- 🔄 API-Key-Authentifizierung entfernt – alle Endpunkte ohne Auth (lokal/Self-hosted)
 
 ### Security
-- 🔒 API-Key-Authentifizierung für alle Endpunkte (außer /health)
-- 🔒 Tenant-Isolation bereits vorhanden
+- 🔒 Tenant-Isolation (appId / externalUserId)
+- 🔒 Keine API-Key-Pflicht (typisch für lokale Nutzung)
 
 ## [1.0.0] - Initial Release
 

@@ -22,6 +22,10 @@ export interface QueryMemoryRequest {
   query: string;
   limit?: number;
   bundleId?: number;
+  /** 0-1: only return results with similarity >= threshold (default 0 = no filter) */
+  threshold?: number;
+  /** optional: limit search to these memory IDs */
+  seedIds?: number[];
 }
 
 export interface QueryMemoryResult {

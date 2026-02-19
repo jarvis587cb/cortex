@@ -84,7 +84,7 @@ Content-Type: application/json
 | **Performance** | Sub-200ms | Abhängig von Datenmenge |
 | **Skalierung** | ✅ Hochskalierbar | ⚠️ Single-Instance (SQLite) |
 | **Kosten** | 💰 Pay-per-use | ✅ Kostenlos (Self-hosted) |
-| **Authentifizierung** | ✅ Bearer Token (nk_...) | ✅ Optional API-Key |
+| **Authentifizierung** | ✅ Bearer Token (nk_...) | ❌ Keine (lokal) |
 | **Bundles** | ✅ Unterstützt | ✅ Unterstützt |
 | **TypeScript SDK** | ✅ SDK vorhanden | ✅ SDK vorhanden |
 | **Query-Parameter** | ✅ Tenant-IDs in Query-String | ✅ Unterstützt (mit Body-Fallback) |

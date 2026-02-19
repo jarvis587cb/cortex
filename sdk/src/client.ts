@@ -137,6 +137,8 @@ export class CortexClient {
           query: request.query,
           limit: request.limit,
           bundleId: request.bundleId,
+          threshold: request.threshold,
+          seedIds: request.seedIds,
         },
       });
     } else {
@@ -147,6 +149,8 @@ export class CortexClient {
           query: request.query,
           limit: request.limit,
           bundleId: request.bundleId,
+          threshold: request.threshold,
+          seedIds: request.seedIds,
         },
       });
     }
