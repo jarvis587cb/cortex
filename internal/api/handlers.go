@@ -893,6 +893,40 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
+// Analytics API Handlers
+
+func (h *Handlers) HandleAnalytics(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	daysStr := helpers.GetQueryParam(r, "days")
+
+	days := 30 // Default: last 30 days
+	if daysStr != "" {
+		if d := helpers.ParseLimit(daysStr, 1, 365); d > 0 {
+			days = d
+		}
+	}
+
+	var analytics *store.AnalyticsData
+	var err error
+
+	if appID != "" && externalUserID != "" {
+		// Tenant-specific analytics
+		analytics, err = h.store.GetAnalytics(appID, externalUserID, days)
+	} else {
+		// Global analytics (requires admin or can be restricted)
+		analytics, err = h.store.GetGlobalAnalytics(days)
+	}
+
+	if err != nil {
+		slog.Error("analytics error", "error", err, "appId", appID, "userId", externalUserID)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, analytics)
+}
+
 // triggerWebhook triggers webhooks for a given event
 func (h *Handlers) triggerWebhook(event webhooks.EventType, data map[string]interface{}) {
 	// Get app_id from data if available

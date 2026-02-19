@@ -864,6 +864,80 @@ curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
 
 **Hinweis:** Der Restore-Prozess kopiert die Backup-Datei über die aktuelle Datenbank. Ein Server-Neustart ist erforderlich, damit die Änderungen wirksam werden.
 
+## Analytics
+
+Cortex bietet **Analytics-Endpunkte** für Dashboard-Daten und Metriken.
+
+### `GET /analytics` - Analytics-Daten abrufen
+
+Ruft Analytics-Daten für einen Tenant oder global ab.
+
+**Query-Parameter:**
+- `appId` (string, optional) - Für Tenant-spezifische Analytics
+- `externalUserId` (string, optional) - Für Tenant-spezifische Analytics
+- `days` (int, optional) - Anzahl der Tage für Zeitraum (Standard: 30, Max: 365)
+
+**Response (200 OK):**
+```json
+{
+  "tenant_id": "myapp:user123",
+  "app_id": "myapp",
+  "external_user_id": "user123",
+  "total_memories": 42,
+  "total_bundles": 5,
+  "memories_with_embeddings": 38,
+  "memories_by_type": {
+    "semantic": 35,
+    "episodic": 7
+  },
+  "memories_by_bundle": {
+    "1": 10,
+    "2": 5
+  },
+  "recent_activity": [
+    {
+      "type": "memory.created",
+      "id": 42,
+      "timestamp": "2026-02-19T10:30:00Z"
+    }
+  ],
+  "storage_stats": {
+    "memories_count": 42,
+    "bundles_count": 5,
+    "webhooks_count": 2
+  },
+  "time_range": {
+    "start": "2026-01-20T10:30:00Z",
+    "end": "2026-02-19T10:30:00Z"
+  }
+}
+```
+
+**Beispiele:**
+
+```bash
+# Tenant-spezifische Analytics (letzte 30 Tage)
+curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123" \
+  -H "X-API-Key: dein-key"
+
+# Tenant-spezifische Analytics (letzte 7 Tage)
+curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=7" \
+  -H "X-API-Key: dein-key"
+
+# Globale Analytics (alle Tenants)
+curl "http://localhost:9123/analytics?days=30" \
+  -H "X-API-Key: dein-key"
+```
+
+**Verfügbare Metriken:**
+- **Total Memories** - Gesamtanzahl der Memories
+- **Total Bundles** - Gesamtanzahl der Bundles
+- **Memories with Embeddings** - Anzahl der Memories mit Embeddings
+- **Memories by Type** - Aufschlüsselung nach Memory-Typ
+- **Memories by Bundle** - Aufschlüsselung nach Bundle
+- **Recent Activity** - Letzte 50 Aktivitäten (Memories/Bundles erstellt)
+- **Storage Stats** - Speicher-Statistiken
+
 ## Support
 
 - **Dokumentation:** Siehe [README.md](README.md)

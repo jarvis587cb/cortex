@@ -125,6 +125,9 @@ func main() {
 	mux.HandleFunc("/backup", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleBackup, http.MethodPost))))
 	mux.HandleFunc("/restore", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleRestore, http.MethodPost))))
 
+	// Analytics API (with rate limiting)
+	mux.HandleFunc("/analytics", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleAnalytics, http.MethodGet))))
+
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {
 		port = helpers.DefaultPort

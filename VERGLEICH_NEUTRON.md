@@ -47,7 +47,7 @@ Cortex ist eine **vollständig kompatible, lokale Alternative** zur Neutron Memo
 |---------|---------|--------|-----------|
 | **Rate Limiting** | ✅ Implementiert | ✅ Implementiert | ✅ Identisch |
 | **Webhooks** | ✅ Verfügbar | ✅ Verfügbar | ✅ Implementiert |
-| **Analytics Dashboard** | ✅ Verfügbar | ❌ Nicht verfügbar | Niedrig |
+| **Analytics Dashboard** | ✅ Verfügbar | ✅ Verfügbar (API) | ✅ Implementiert |
 | **Export/Import** | ✅ Verfügbar | ✅ Verfügbar | ✅ Implementiert |
 | **Backup/Restore** | ✅ Automatisch | ✅ Verfügbar | ✅ Implementiert |
 

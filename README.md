@@ -617,6 +617,29 @@ curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
 
 **⚠️ WICHTIG:** Nach dem Restore muss der Server neu gestartet werden!
 
+## Analytics
+
+Cortex bietet **Analytics-Endpunkte** für Dashboard-Daten:
+
+### Analytics abrufen
+
+```bash
+# Tenant-spezifische Analytics
+curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=30" \
+  -H "X-API-Key: dein-key"
+
+# Globale Analytics
+curl "http://localhost:9123/analytics?days=30" \
+  -H "X-API-Key: dein-key"
+```
+
+**Verfügbare Metriken:**
+- Gesamtanzahl Memories, Bundles, Webhooks
+- Memories mit Embeddings
+- Aufschlüsselung nach Type und Bundle
+- Recent Activity (letzte 50 Aktivitäten)
+- Storage-Statistiken
+
 ## Agent-Tools (geplant)
 
 Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
