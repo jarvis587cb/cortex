@@ -313,7 +313,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 
 	limit := req.Limit
 	if limit <= 0 || limit > helpers.MaxLimit {
-		limit = 5
+		limit = helpers.DefaultQueryLimit
 	}
 
 	// Versuche semantische Suche, fallback zu Textsuche
@@ -841,7 +841,7 @@ func (h *Handlers) HandleAnalytics(w http.ResponseWriter, r *http.Request) {
 	externalUserID := helpers.GetQueryParam(r, "externalUserId")
 	daysStr := helpers.GetQueryParam(r, "days")
 
-	days := 30 // Default: last 30 days
+	days := helpers.DefaultAnalyticsDays
 	if daysStr != "" {
 		if d := helpers.ParseLimit(daysStr, 1, 365); d > 0 {
 			days = d

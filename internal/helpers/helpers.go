@@ -18,6 +18,8 @@ const (
 	DefaultImportance = 5
 	DefaultLimit      = 10
 	MaxLimit          = 100
+	DefaultQueryLimit = 5  // Default limit for query operations
+	DefaultAnalyticsDays = 30 // Default days for analytics queries
 )
 
 // JSON Helpers
@@ -90,6 +92,13 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 // IsNotFoundError checks if an error is a "not found" error (gorm.ErrRecordNotFound)
 func IsNotFoundError(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+// HandleInternalError logs an error and writes an internal server error response
+// This is a convenience function for the common pattern of logging and returning 500
+func HandleInternalError(w http.ResponseWriter, logger func(msg string, args ...any), msg string, args ...any) {
+	logger(msg, args...)
+	http.Error(w, "internal error", http.StatusInternalServerError)
 }
 
 // ValidateTenantParams validates tenant parameters and writes error response if invalid

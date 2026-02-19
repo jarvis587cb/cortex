@@ -46,7 +46,7 @@ type TimeRange struct {
 // GetAnalytics retrieves analytics data for a tenant
 func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*AnalyticsData, error) {
 	if days <= 0 {
-		days = 30 // Default: last 30 days
+		days = 30 // Default: last 30 days (keep as literal since this is in store package)
 	}
 
 	startTime := time.Now().AddDate(0, 0, -days)
@@ -177,7 +177,7 @@ func (s *CortexStore) GetAnalytics(appID, externalUserID string, days int) (*Ana
 // GetGlobalAnalytics retrieves global analytics (all tenants)
 func (s *CortexStore) GetGlobalAnalytics(days int) (*AnalyticsData, error) {
 	if days <= 0 {
-		days = 30
+		days = 30 // Default: last 30 days
 	}
 
 	startTime := time.Now().AddDate(0, 0, -days)
