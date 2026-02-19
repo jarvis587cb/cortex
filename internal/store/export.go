@@ -192,6 +192,12 @@ func (s *CortexStore) CopyFile(src, dst string) error {
 	return nil
 }
 
+// FileExists checks if a file exists
+func (s *CortexStore) FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
 // GetDatabasePath returns the path to the database file
 func (s *CortexStore) GetDatabasePath() (string, error) {
 	sqlDB, err := s.db.DB()

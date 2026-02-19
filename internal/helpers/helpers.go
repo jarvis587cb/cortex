@@ -3,6 +3,7 @@ package helpers
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -103,6 +104,12 @@ func HandleInternalError(w http.ResponseWriter, logger func(msg string, args ...
 	http.Error(w, "internal error", http.StatusInternalServerError)
 }
 
+// HandleInternalErrorSlog logs an error using slog and writes an internal server error response
+func HandleInternalErrorSlog(w http.ResponseWriter, msg string, args ...any) {
+	slog.Error(msg, args...)
+	http.Error(w, "internal error", http.StatusInternalServerError)
+}
+
 // ExtractAndParseID extracts ID from path and parses it to int64
 // Returns the parsed ID or writes error response and returns false
 func ExtractAndParseID(w http.ResponseWriter, path, prefix string) (int64, bool) {
@@ -129,6 +136,22 @@ func HandleNotFoundError(w http.ResponseWriter, err error, resourceName string) 
 		return true
 	}
 	return false
+}
+
+// ParseJSONBodyOrError parses JSON body and writes error response if parsing fails
+// Returns true if parsing succeeded, false otherwise (error already written)
+func ParseJSONBodyOrError(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := ParseJSONBody(r, v); err != nil {
+		http.Error(w, "invalid json body", http.StatusBadRequest)
+		return false
+	}
+	return true
+}
+
+// ValidateNotEmpty validates that a string is not empty after trimming
+// Returns true if valid, false otherwise
+func ValidateNotEmpty(value, fieldName string) bool {
+	return strings.TrimSpace(value) != ""
 }
 
 // ValidateTenantParams validates tenant parameters and writes error response if invalid

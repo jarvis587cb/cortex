@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -45,12 +44,11 @@ func (h *Handlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleRemember(w http.ResponseWriter, r *http.Request) {
 	var req models.RememberRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
-	if strings.TrimSpace(req.Content) == "" {
+	if !helpers.ValidateNotEmpty(req.Content, "content") {
 		http.Error(w, "content is required", http.StatusBadRequest)
 		return
 	}
@@ -71,8 +69,7 @@ func (h *Handlers) HandleRemember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateMemory(&mem); err != nil {
-		slog.Error("remember insert error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "remember insert error", "error", err)
 		return
 	}
 
@@ -89,8 +86,7 @@ func (h *Handlers) HandleRecall(w http.ResponseWriter, r *http.Request) {
 
 	memories, err := h.store.SearchMemories(query, memType, limit)
 	if err != nil {
-		slog.Error("recall query error", "error", err, "query", query)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "recall query error", "error", err, "query", query)
 		return
 	}
 
@@ -112,12 +108,11 @@ func (h *Handlers) HandleSetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req models.FactRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
-	if strings.TrimSpace(req.Key) == "" {
+	if !helpers.ValidateNotEmpty(req.Key, "key") {
 		http.Error(w, "key is required", http.StatusBadRequest)
 		return
 	}
@@ -127,8 +122,7 @@ func (h *Handlers) HandleSetFact(w http.ResponseWriter, r *http.Request) {
 	if err == nil && ent.Data != "" {
 		data = helpers.UnmarshalEntityData(ent.Data)
 	} else if err != nil && !helpers.IsNotFoundError(err) {
-		slog.Error("get entity error", "error", err, "entity", entity)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "get entity error", "error", err, "entity", entity)
 		return
 	}
 
@@ -140,8 +134,7 @@ func (h *Handlers) HandleSetFact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateOrUpdateEntity(ent); err != nil {
-		slog.Error("set fact error", "error", err, "entity", entity)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "set fact error", "error", err, "entity", entity)
 		return
 	}
 
@@ -160,8 +153,7 @@ func (h *Handlers) HandleGetEntity(w http.ResponseWriter, r *http.Request) {
 		if helpers.HandleNotFoundError(w, err, "Entity") {
 			return
 		}
-		slog.Error("get entity error", "error", err, "name", name)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "get entity error", "error", err, "name", name)
 		return
 	}
 
@@ -172,8 +164,7 @@ func (h *Handlers) HandleGetEntity(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HandleListEntities(w http.ResponseWriter, r *http.Request) {
 	entities, err := h.store.ListEntities()
 	if err != nil {
-		slog.Error("list entities error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "list entities error", "error", err)
 		return
 	}
 
@@ -186,12 +177,11 @@ func (h *Handlers) HandleListEntities(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleAddRelation(w http.ResponseWriter, r *http.Request) {
 	var req models.RelationRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
-	if strings.TrimSpace(req.From) == "" || strings.TrimSpace(req.To) == "" || strings.TrimSpace(req.Type) == "" {
+	if !helpers.ValidateNotEmpty(req.From, "from") || !helpers.ValidateNotEmpty(req.To, "to") || !helpers.ValidateNotEmpty(req.Type, "type") {
 		http.Error(w, "from, to and type are required", http.StatusBadRequest)
 		return
 	}
@@ -203,8 +193,7 @@ func (h *Handlers) HandleAddRelation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateOrUpdateRelation(&rel); err != nil {
-		slog.Error("add relation error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "add relation error", "error", err)
 		return
 	}
 
@@ -215,8 +204,7 @@ func (h *Handlers) HandleListRelations(w http.ResponseWriter, r *http.Request) {
 	entity := helpers.GetQueryParam(r, "entity")
 	relations, err := h.store.GetRelations(entity)
 	if err != nil {
-		slog.Error("list relations error", "error", err, "entity", entity)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "list relations error", "error", err, "entity", entity)
 		return
 	}
 
@@ -226,8 +214,7 @@ func (h *Handlers) HandleListRelations(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.store.GetStats()
 	if err != nil {
-		slog.Error("stats error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "stats error", "error", err)
 		return
 	}
 
@@ -238,8 +225,7 @@ func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	var req models.StoreSeedRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
@@ -267,8 +253,7 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateMemory(&mem); err != nil {
-		slog.Error("store seed error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "store seed error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -293,8 +278,7 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	var req models.QuerySeedRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
@@ -322,8 +306,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		// Fallback zu Textsuche
 		memories, err = h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit)
 		if err != nil {
-			slog.Error("query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
 			return
 		}
 	}
@@ -375,8 +358,7 @@ func (h *Handlers) HandleGenerateEmbeddings(w http.ResponseWriter, r *http.Reque
 	batchSize := helpers.ParseLimit(helpers.GetQueryParam(r, "batchSize"), 10, 100)
 
 	if err := h.store.BatchGenerateEmbeddings(batchSize); err != nil {
-		slog.Error("batch generate embeddings error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "batch generate embeddings error", "error", err)
 		return
 	}
 
@@ -407,14 +389,12 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 		if helpers.HandleNotFoundError(w, err, "Memory") {
 			return
 		}
-		slog.Error("delete seed error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "delete seed error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
 		return
 	}
 
 	if err := h.store.DeleteMemory(mem); err != nil {
-		slog.Error("delete seed error", "error", err, "id", mem.ID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "delete seed error", "error", err, "id", mem.ID)
 		return
 	}
 
@@ -435,8 +415,7 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateBundleRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
@@ -460,8 +439,7 @@ func (h *Handlers) HandleCreateBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateBundle(&bundle); err != nil {
-		slog.Error("create bundle error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "create bundle error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -491,8 +469,7 @@ func (h *Handlers) HandleListBundles(w http.ResponseWriter, r *http.Request) {
 
 	bundles, err := h.store.ListBundles(appID, externalUserID)
 	if err != nil {
-		slog.Error("list bundles error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "list bundles error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -526,8 +503,7 @@ func (h *Handlers) HandleGetBundle(w http.ResponseWriter, r *http.Request) {
 		if helpers.HandleNotFoundError(w, err, "Bundle") {
 			return
 		}
-		slog.Error("get bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "get bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -555,8 +531,7 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 		if helpers.HandleNotFoundError(w, err, "Bundle") {
 			return
 		}
-		slog.Error("delete bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "delete bundle error", "error", err, "id", id, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -577,8 +552,7 @@ func (h *Handlers) HandleDeleteBundle(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateWebhookRequest
-	if err := helpers.ParseJSONBody(r, &req); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
 		return
 	}
 
@@ -601,8 +575,7 @@ func (h *Handlers) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.CreateWebhook(&webhook); err != nil {
-		slog.Error("create webhook error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "create webhook error", "error", err)
 		return
 	}
 
@@ -614,8 +587,7 @@ func (h *Handlers) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
 
 	webhookList, err := h.store.ListWebhooks(appID)
 	if err != nil {
-		slog.Error("list webhooks error", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "list webhooks error", "error", err)
 		return
 	}
 
@@ -637,8 +609,7 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 		if helpers.HandleNotFoundError(w, err, "Webhook") {
 			return
 		}
-		slog.Error("delete webhook error", "error", err, "id", id)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "delete webhook error", "error", err, "id", id)
 		return
 	}
 
@@ -664,8 +635,7 @@ func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
 
 	exportData, err := h.store.ExportAll(appID, externalUserID)
 	if err != nil {
-		slog.Error("export error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "export error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -687,16 +657,14 @@ func (h *Handlers) HandleImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var exportData store.ExportData
-	if err := helpers.ParseJSONBody(r, &exportData); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+	if !helpers.ParseJSONBodyOrError(w, r, &exportData) {
 		return
 	}
 
 	overwrite := helpers.GetQueryParam(r, "overwrite") == "true"
 
 	if err := h.store.ImportData(&exportData, overwrite); err != nil {
-		slog.Error("import error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "import error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
@@ -719,8 +687,7 @@ func (h *Handlers) HandleBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.store.BackupDatabase(backupPath); err != nil {
-		slog.Error("backup error", "error", err, "path", backupPath)
-		http.Error(w, "internal error: "+err.Error(), http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "backup error", "error", err, "path", backupPath)
 		return
 	}
 
@@ -740,13 +707,12 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 	// Get current database path
 	currentPath, err := h.store.GetDatabasePath()
 	if err != nil {
-		slog.Error("get database path error", "error", err)
-		http.Error(w, "internal error: failed to get database path", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "get database path error", "error", err)
 		return
 	}
 
 	// Check if backup file exists
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+	if !h.store.FileExists(backupPath) {
 		http.Error(w, "backup file not found", http.StatusNotFound)
 		return
 	}
@@ -754,8 +720,7 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 	// Note: Restore requires server restart. We'll just copy the file
 	// and inform the user that a restart is needed.
 	if err := h.store.CopyFile(backupPath, currentPath); err != nil {
-		slog.Error("restore error", "error", err, "backupPath", backupPath, "currentPath", currentPath)
-		http.Error(w, "internal error: failed to restore database: "+err.Error(), http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "restore error", "error", err, "backupPath", backupPath, "currentPath", currentPath)
 		return
 	}
 
@@ -793,8 +758,7 @@ func (h *Handlers) HandleAnalytics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		slog.Error("analytics error", "error", err, "appId", appID, "userId", externalUserID)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		helpers.HandleInternalErrorSlog(w, "analytics error", "error", err, "appId", appID, "userId", externalUserID)
 		return
 	}
 
