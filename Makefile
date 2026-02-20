@@ -6,7 +6,7 @@ help: ## Zeigt diese Hilfe an
 	@echo "Verfügbare Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-build: ## Baut beide Binaries (cortex-server, cortex-cli). Für Dashboard im Binary: zuerst make build-dashboard
+build: build-dashboard ## Baut Dashboard und beide Binaries (cortex-server, cortex-cli)
 	go build -o cortex-server ./cmd/cortex-server && \
 	go build -o cortex-cli ./cmd/cortex-cli
 
