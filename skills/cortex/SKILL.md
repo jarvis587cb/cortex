@@ -1,6 +1,6 @@
 ---
 name: cortex
-description: "Vollständig lokale, persistente Memory-API für OpenClaw Agents. Server-Installation, API-Nutzung und OpenClaw-Integration mit Neutron-kompatiblen Script-Befehlen und Hooks."
+description: "Vollständig lokale, persistente Memory-API für OpenClaw Agents. Server-Installation, API-Nutzung und OpenClaw-Integration mit Neutron-kompatiblen CLI-Befehlen."
 metadata:
   {
     "openclaw":
@@ -23,7 +23,7 @@ metadata:
 
 # Cortex Skill
 
-**Cortex** ist eine **vollständig lokale**, persistente Memory-API für OpenClaw Agents. Ein Skill für Server-Installation, API-Nutzung und OpenClaw-Integration (Neutron-kompatible Script-Befehle, Hooks).
+**Cortex** ist eine **vollständig lokale**, persistente Memory-API für OpenClaw Agents. Ein Skill für Server-Installation, API-Nutzung und OpenClaw-Integration mit Neutron-kompatiblen CLI-Befehlen.
 
 ## References
 
@@ -59,20 +59,40 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 ## Installation
 
-### Schnellstart
+### Vollständige Installation (Empfohlen)
+
+**Schritt-für-Schritt-Anleitung:**
+
+```bash
+# 1. Repository klonen
+git clone https://github.com/jarvis587cb/cortex.git
+cd cortex
+
+# 2. Binaries bauen
+make build    # Erstellt cortex-server und cortex-cli
+
+# 3. systemd User Service erstellen
+mkdir -p ~/.config/systemd/user
+cp skills/cortex/cortex-server.service ~/.config/systemd/user/cortex-server.service
+# %h durch $HOME ersetzen (falls nötig)
+sed -i "s|%h|$HOME|g" ~/.config/systemd/user/cortex-server.service
+
+# 4. Service aktivieren und starten
+systemctl --user daemon-reload
+systemctl --user enable cortex-server.service
+systemctl --user start cortex-server.service
+
+# Status prüfen
+systemctl --user status cortex-server
+```
+
+### Schnellstart (Manuell ohne Service)
 
 ```bash
 cd /path/to/cortex
 go mod tidy
 make build    # Erstellt cortex-server und cortex-cli
 make run      # Startet den Server
-```
-
-### Installation mit Script
-
-```bash
-./skills/cortex/install.sh
-./skills/cortex/setup.sh
 ```
 
 ### Docker
@@ -91,10 +111,22 @@ make install  # Installiert beide Binaries nach /usr/local/bin
 
 ### systemd User Service (Empfohlen für dauerhaften Betrieb)
 
-Installiert cortex-server als systemd user service, der automatisch beim Login startet:
+Installiere cortex-server als systemd user service, der automatisch beim Login startet:
+
+**Manuelle Installation:**
 
 ```bash
-./skills/cortex/install-service.sh
+# 1. Service-File kopieren
+mkdir -p ~/.config/systemd/user
+cp skills/cortex/cortex-server.service ~/.config/systemd/user/cortex-server.service
+
+# 2. %h durch $HOME ersetzen (falls nötig)
+sed -i "s|%h|$HOME|g" ~/.config/systemd/user/cortex-server.service
+
+# 3. Service aktivieren und starten
+systemctl --user daemon-reload
+systemctl --user enable cortex-server.service
+systemctl --user start cortex-server.service
 ```
 
 Der Service:
@@ -273,24 +305,28 @@ curl -X POST http://localhost:9123/seeds/query?appId=openclaw&externalUserId=use
 curl -X DELETE "http://localhost:9123/seeds/1?appId=openclaw&externalUserId=user123"
 ```
 
-### Hooks (Auto-Recall / Auto-Capture)
+### Auto-Recall / Auto-Capture
 
 Vor jeder AI-Interaktion Recall, nach jedem Austausch Capture (z. B. für OpenClaw):
 
-```bash
-# Recall: Relevante Memories abrufen
-./skills/cortex/hooks.sh recall "letzte User-Nachricht oder Thema"
+**Recall: Relevante Memories abrufen**
 
-# Capture: Neue Information speichern
-./skills/cortex/hooks.sh capture "Zusammenfassung oder Rohinhalt des Austauschs"
+```bash
+# Mit cortex-cli direkt
+./cortex-cli query "letzte User-Nachricht oder Thema" 10
 ```
 
-`hooks.sh` verwendet `cortex-cli` für Recall und Capture. Pfad kann überschrieben werden: `CORTEX_CLI_PATH=/pfad/zu/cortex-cli`.
+**Capture: Neue Information speichern**
 
-**Umgebungsvariablen:**
+```bash
+# Mit cortex-cli direkt
+./cortex-cli store "Zusammenfassung oder Rohinhalt des Austauschs"
+```
 
-- **CORTEX_AUTO_RECALL** (default: `true`): Bei `false` oder `0` macht `recall` nichts.
-- **CORTEX_AUTO_CAPTURE** (default: `true`): Bei `false` oder `0` macht `capture` nichts.
+**Umgebungsvariablen für automatische Ausführung:**
+
+- **CORTEX_AUTO_RECALL** (default: `true`): Bei `false` oder `0` sollte Recall übersprungen werden.
+- **CORTEX_AUTO_CAPTURE** (default: `true`): Bei `false` oder `0` sollte Capture übersprungen werden.
 
 ### Typische Workflows
 
@@ -375,7 +411,7 @@ Cortex ist als **lokale, Neutron-kompatible Alternative** gebaut. Gleiche Konzep
 | `save "content" "metadata"` | `cortex-cli store` |
 | `search "query" [limit] [threshold] [seedIds]` | `cortex-cli query` (threshold, seedIds optional) |
 | `context-create`, `context-list`, `context-get` | `cortex-cli context-create`, `context-list`, `context-get` |
-| Auto-Recall / Auto-Capture | `skills/cortex/hooks.sh recall` / `capture`; Env `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` |
+| Auto-Recall / Auto-Capture | `cortex-cli query` / `cortex-cli store`; Env `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` |
 
 ### Umgebung (Env)
 

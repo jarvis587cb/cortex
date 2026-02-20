@@ -140,7 +140,7 @@ Beispiele:
   %s benchmark 50
   %s api-key create
   %s api-key show
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {

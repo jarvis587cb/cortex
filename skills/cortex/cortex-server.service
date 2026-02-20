@@ -1,18 +1,16 @@
 [Unit]
-Description=Cortex Memory API Server
-Documentation=https://github.com/openclaw/cortex
+Description=Cortex Server User Service
 After=network.target
 
 [Service]
 Type=simple
-# Binary aus Projekt-Verzeichnis verwenden
-# Alternative: Falls Binary installiert wurde (make install), verwende: ExecStart=cortex-server
-ExecStart=%h/.openclaw/workspace/projects/cortex/cortex-server
+WorkingDirectory=%h/cortex
+ExecStart=%h/cortex/cortex-server
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=cortex-server
+
+# Falls eine .env Datei genutzt wird:
+# EnvironmentFile=%h/cortex/.env
 
 # Umgebungsvariablen
 Environment="CORTEX_DB_PATH=%h/.openclaw/cortex.db"
@@ -20,16 +18,6 @@ Environment="CORTEX_PORT=9123"
 Environment="CORTEX_LOG_LEVEL=info"
 Environment="CORTEX_RATE_LIMIT=100"
 Environment="CORTEX_RATE_LIMIT_WINDOW=1m"
-
-# Working Directory (optional, für relative Pfade)
-WorkingDirectory=%h/.openclaw/workspace/projects/cortex
-
-# Sicherheit
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=%h/.openclaw
 
 [Install]
 WantedBy=default.target

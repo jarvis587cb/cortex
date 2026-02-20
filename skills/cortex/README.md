@@ -1,59 +1,57 @@
 # Cortex Skill - Installationsanweisungen
 
-Dieser Ordner enthält Installations- und Setup-Scripte für Cortex.
+Dieser Ordner enthält die Dokumentation und Service-Dateien für Cortex.
 
 ## Dateien
 
-- **`SKILL.md`** – Hauptdokumentation (Server, API, OpenClaw-Script, Hooks)
-- **`install.sh`** – Installations-Script (Dependencies, Build, Tests)
-- **`setup.sh`** – Setup-Script (Config, Aliase, systemd Service)
-- **`hooks.sh`** – OpenClaw Hooks (Recall/Capture), ruft `scripts/cortex-memory.sh` auf
+- **`SKILL.md`** – Vollständige Dokumentation (Installation, API, CLI, OpenClaw-Integration)
+- **`cortex-server.service`** – systemd User Service-Datei für den Cortex-Server
+- **`cortex-server-installed.service`** – Alternative Service-Datei für installierte Binaries
 
-## Verwendung
+## Installation
 
-### 1. Installation
+### Vollständige Installation (Empfohlen)
 
 ```bash
-# Aus dem Cortex-Projektverzeichnis
-./skills/cortex/install.sh
+# 1. Repository klonen
+git clone https://github.com/jarvis587cb/cortex.git
+cd cortex
+
+# 2. Binaries bauen
+make build    # Erstellt cortex-server und cortex-cli
+
+# 3. systemd User Service erstellen
+mkdir -p ~/.config/systemd/user
+cp skills/cortex/cortex-server.service ~/.config/systemd/user/cortex-server.service
+# %h durch $HOME ersetzen (falls nötig)
+sed -i "s|%h|$HOME|g" ~/.config/systemd/user/cortex-server.service
+
+# 4. Service aktivieren und starten
+systemctl --user daemon-reload
+systemctl --user enable cortex-server.service
+systemctl --user start cortex-server.service
+
+# Status prüfen
+systemctl --user status cortex-server
 ```
 
-Das Script:
-- Prüft Go-Installation
-- Installiert Dependencies
-- Baut die Binary
-- Führt Tests aus
-- Erstellt benötigte Verzeichnisse
-
-### 2. Setup
+### Schnellstart (Manuell ohne Service)
 
 ```bash
-# Nach der Installation
-./skills/cortex/setup.sh
-```
+# 1. Repository klonen und bauen
+git clone https://github.com/jarvis587cb/cortex.git
+cd cortex
+make build
 
-Das Script:
-- Erstellt Config-Datei (`~/.openclaw/cortex.json`)
-- Erstellt `.env` Datei
-- Optional: systemd Service
-- Optional: Shell-Aliase
-
-## Schnellstart
-
-```bash
-# 1. Installation
-./skills/cortex/install.sh
-
-# 2. Setup
-./skills/cortex/setup.sh
-
-# 3. Server starten
+# 2. Server starten
 ./cortex-server
 # oder
 go run ./cmd/cortex-server
 
-# 4. Health-Check
+# 3. Health-Check
 curl http://localhost:9123/health
+# oder
+./cortex-cli health
 ```
 
 ## Weitere Informationen
