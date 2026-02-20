@@ -179,20 +179,20 @@ cmd_context_get() {
     fi
 }
 
-# recall - Auto-Recall hook: before each AI interaction, retrieve relevant context (if VANAR_AUTO_RECALL != false)
+# recall - Auto-Recall hook: before each AI interaction, retrieve relevant context (if CORTEX_AUTO_RECALL != false)
 cmd_recall() {
     local q="${1:-}"
-    if [ "${VANAR_AUTO_RECALL:-true}" = "false" ] || [ "${VANAR_AUTO_RECALL:-true}" = "0" ]; then
+    if [ "${CORTEX_AUTO_RECALL:-true}" = "false" ] || [ "${CORTEX_AUTO_RECALL:-true}" = "0" ]; then
         exit 0
     fi
     [ -z "$q" ] && q="recent context"
     cmd_search "$q" "${2:-10}" "${3:-0.3}"
 }
 
-# capture - Auto-Capture hook: after each exchange, store conversation (if VANAR_AUTO_CAPTURE != false)
+# capture - Auto-Capture hook: after each exchange, store conversation (if CORTEX_AUTO_CAPTURE != false)
 cmd_capture() {
     local content="${1:-}"
-    if [ "${VANAR_AUTO_CAPTURE:-true}" = "false" ] || [ "${VANAR_AUTO_CAPTURE:-true}" = "0" ]; then
+    if [ "${CORTEX_AUTO_CAPTURE:-true}" = "false" ] || [ "${CORTEX_AUTO_CAPTURE:-true}" = "0" ]; then
         exit 0
     fi
     [ -z "$content" ] && { log_warning "capture: no content"; exit 0; }
@@ -219,8 +219,8 @@ Commands:
   test                    Verify Cortex connection
   save "content" [meta]   Save a memory (metadata optional JSON)
   search "query" [limit] [threshold] [seedIds]   Semantic search (seedIds optional, comma-separated)
-  recall [query] [limit] [threshold]   Hook: recall context before interaction (honours VANAR_AUTO_RECALL)
-  capture "content" [meta]   Hook: capture after exchange (honours VANAR_AUTO_CAPTURE)
+  recall [query] [limit] [threshold]   Hook: recall context before interaction (honours CORTEX_AUTO_RECALL)
+  capture "content" [meta]   Hook: capture after exchange (honours CORTEX_AUTO_CAPTURE)
   context-create <agentId> [memoryType] [payload_json]   Create agent context
   context-list [agentId]  List agent contexts
   context-get <id>        Get one agent context by ID
@@ -228,8 +228,8 @@ Commands:
 Environment:
   CORTEX_API_URL, CORTEX_APP_ID, CORTEX_USER_ID
   CORTEX_API_KEY      optional - when set, sends Authorization: Bearer <key>
-  VANAR_AUTO_RECALL   true|false (default: true) - run recall hook
-  VANAR_AUTO_CAPTURE  true|false (default: true) - run capture hook
+  CORTEX_AUTO_RECALL   true|false (default: true) - run recall hook
+  CORTEX_AUTO_CAPTURE  true|false (default: true) - run capture hook
 EOF
         ;;
     *)

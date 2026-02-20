@@ -27,7 +27,7 @@ Nach `make build`: alle Befehle ohne jq/curl.
 
 Für **Hooks** (Auto-Recall/Auto-Capture) z. B. mit OpenClaw: `skills/cortex/hooks.sh recall` / `capture` (ruft dieses Script auf). Eigenständig: `test`, `save`, `search`, `recall`, `capture`, `context-create`, `context-list`, `context-get`.
 
-**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`; für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`; für Hooks: `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` (default: true).
 
 Siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md).
 
