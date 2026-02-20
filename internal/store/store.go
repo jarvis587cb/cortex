@@ -55,10 +55,16 @@ func (s *CortexStore) migrate() error {
 	}
 
 	// Composite Indizes für häufigste Queries
-	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_tenant ON memories(app_id, external_user_id)")
-	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_tenant_bundle ON memories(app_id, external_user_id, bundle_id)")
-	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_created_at ON memories(created_at DESC)")
-	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_memory_embedding ON memories(embedding) WHERE embedding != '' AND embedding IS NOT NULL")
+	for _, q := range []string{
+		"CREATE INDEX IF NOT EXISTS idx_memory_tenant ON memories(app_id, external_user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_memory_tenant_bundle ON memories(app_id, external_user_id, bundle_id)",
+		"CREATE INDEX IF NOT EXISTS idx_memory_created_at ON memories(created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_memory_embedding ON memories(embedding) WHERE embedding != '' AND embedding IS NOT NULL",
+	} {
+		if err := s.db.Exec(q).Error; err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
