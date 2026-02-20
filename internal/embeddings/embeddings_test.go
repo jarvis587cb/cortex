@@ -1,6 +1,8 @@
 package embeddings
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -156,5 +158,189 @@ func TestLocalEmbeddingService(t *testing.T) {
 	similarity2 := CosineSimilarity(embedding, embedding3)
 	if similarity2 > 0.9 {
 		t.Errorf("different content should have lower similarity, got %f", similarity2)
+	}
+}
+
+// TestEmbeddingServiceInterface testet dass beide Services das Interface korrekt implementieren
+func TestEmbeddingServiceInterface(t *testing.T) {
+	services := []struct {
+		name    string
+		service EmbeddingService
+	}{
+		{"LocalEmbeddingService", NewLocalEmbeddingService()},
+	}
+
+	for _, tt := range services {
+		t.Run(tt.name, func(t *testing.T) {
+			// Teste GenerateEmbedding
+			embedding, err := tt.service.GenerateEmbedding("test content", "text/plain")
+			if err != nil {
+				t.Fatalf("GenerateEmbedding failed: %v", err)
+			}
+			if len(embedding) == 0 {
+				t.Error("embedding is empty")
+			}
+			if len(embedding) != 384 {
+				t.Errorf("expected dimension 384, got %d", len(embedding))
+			}
+
+			// Teste GenerateEmbeddingsBatch
+			embeddings, err := tt.service.GenerateEmbeddingsBatch([]string{"test1", "test2"}, "text/plain")
+			if err != nil {
+				t.Fatalf("GenerateEmbeddingsBatch failed: %v", err)
+			}
+			if len(embeddings) != 2 {
+				t.Errorf("expected 2 embeddings, got %d", len(embeddings))
+			}
+			for i, emb := range embeddings {
+				if len(emb) != 384 {
+					t.Errorf("embedding %d: expected dimension 384, got %d", i, len(emb))
+				}
+			}
+		})
+	}
+}
+
+// TestGetEmbeddingService testet die Fallback-Logik von GetEmbeddingService
+func TestGetEmbeddingService(t *testing.T) {
+	// Reset vor jedem Test
+	resetEmbeddingService()
+
+	t.Run("without CORTEX_EMBEDDING_MODEL_PATH", func(t *testing.T) {
+		resetEmbeddingService()
+		oldPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
+		defer os.Setenv("CORTEX_EMBEDDING_MODEL_PATH", oldPath)
+		os.Unsetenv("CORTEX_EMBEDDING_MODEL_PATH")
+
+		service := GetEmbeddingService()
+		if service == nil {
+			t.Fatal("GetEmbeddingService returned nil")
+		}
+
+		// Sollte LocalEmbeddingService sein
+		_, ok := service.(*LocalEmbeddingService)
+		if !ok {
+			t.Error("expected LocalEmbeddingService when CORTEX_EMBEDDING_MODEL_PATH is not set")
+		}
+
+		// Teste dass es funktioniert
+		embedding, err := service.GenerateEmbedding("test", "text/plain")
+		if err != nil {
+			t.Fatalf("GenerateEmbedding failed: %v", err)
+		}
+		if len(embedding) != 384 {
+			t.Errorf("expected dimension 384, got %d", len(embedding))
+		}
+	})
+
+	t.Run("with CORTEX_EMBEDDING_MODEL_PATH but model missing", func(t *testing.T) {
+		resetEmbeddingService()
+		oldPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
+		defer os.Setenv("CORTEX_EMBEDDING_MODEL_PATH", oldPath)
+		os.Setenv("CORTEX_EMBEDDING_MODEL_PATH", "/nonexistent/path/model.gtemodel")
+
+		service := GetEmbeddingService()
+		if service == nil {
+			t.Fatal("GetEmbeddingService returned nil")
+		}
+
+		// Sollte auf LocalEmbeddingService zurückfallen
+		_, ok := service.(*LocalEmbeddingService)
+		if !ok {
+			t.Error("expected LocalEmbeddingService fallback when model is missing")
+		}
+	})
+
+	t.Run("with CORTEX_EMBEDDING_MODEL_PATH and valid model", func(t *testing.T) {
+		resetEmbeddingService()
+		oldPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
+		defer os.Setenv("CORTEX_EMBEDDING_MODEL_PATH", oldPath)
+
+		// Prüfe ob Modell existiert
+		homeDir, _ := os.UserHomeDir()
+		modelPath := filepath.Join(homeDir, ".openclaw", "gte-small.gtemodel")
+		if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+			t.Skip("GTE model not found, skipping test")
+		}
+
+		os.Setenv("CORTEX_EMBEDDING_MODEL_PATH", modelPath)
+		service := GetEmbeddingService()
+		if service == nil {
+			t.Fatal("GetEmbeddingService returned nil")
+		}
+
+		// Sollte GTEEmbeddingService sein
+		gteService, ok := service.(*GTEEmbeddingService)
+		if !ok {
+			t.Error("expected GTEEmbeddingService when model is available")
+		}
+
+		// Teste dass es funktioniert
+		embedding, err := service.GenerateEmbedding("test content", "text/plain")
+		if err != nil {
+			t.Fatalf("GenerateEmbedding failed: %v", err)
+		}
+		if len(embedding) != 384 {
+			t.Errorf("expected dimension 384, got %d", len(embedding))
+		}
+
+		// Cleanup
+		if gteService != nil {
+			gteService.Close()
+		}
+	})
+}
+
+// TestGTEEmbeddingService testet den GTE-Service direkt (optional, skip wenn Modell fehlt)
+func TestGTEEmbeddingService(t *testing.T) {
+	homeDir, _ := os.UserHomeDir()
+	modelPath := filepath.Join(homeDir, ".openclaw", "gte-small.gtemodel")
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		t.Skip("GTE model not found, skipping test")
+	}
+
+	service, err := NewGTEEmbeddingService(modelPath)
+	if err != nil {
+		t.Fatalf("Failed to create GTEEmbeddingService: %v", err)
+	}
+	defer service.Close()
+
+	// Test GenerateEmbedding
+	embedding, err := service.GenerateEmbedding("test content", "text/plain")
+	if err != nil {
+		t.Fatalf("GenerateEmbedding failed: %v", err)
+	}
+	if len(embedding) != 384 {
+		t.Errorf("expected dimension 384, got %d", len(embedding))
+	}
+
+	// Test dass identische Inhalte ähnliche Embeddings haben
+	embedding2, err := service.GenerateEmbedding("test content", "text/plain")
+	if err != nil {
+		t.Fatalf("GenerateEmbedding failed: %v", err)
+	}
+	similarity := CosineSimilarity(embedding, embedding2)
+	if similarity < 0.99 {
+		t.Errorf("identical content should have high similarity, got %f", similarity)
+	}
+
+	// Test GenerateEmbeddingsBatch
+	embeddings, err := service.GenerateEmbeddingsBatch([]string{"test1", "test2", "test3"}, "text/plain")
+	if err != nil {
+		t.Fatalf("GenerateEmbeddingsBatch failed: %v", err)
+	}
+	if len(embeddings) != 3 {
+		t.Errorf("expected 3 embeddings, got %d", len(embeddings))
+	}
+	for i, emb := range embeddings {
+		if len(emb) != 384 {
+			t.Errorf("embedding %d: expected dimension 384, got %d", i, len(emb))
+		}
+	}
+
+	// Test Close
+	err = service.Close()
+	if err != nil {
+		t.Errorf("Close failed: %v", err)
 	}
 }

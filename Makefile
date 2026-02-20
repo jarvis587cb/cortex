@@ -1,4 +1,4 @@
-.PHONY: help build run test clean install kill service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
+.PHONY: help build run test clean install kill copy-skill benchmark benchmark-api benchmark-embeddings _benchmark-embeddings-args service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
 
 help: ## Zeigt diese Hilfe an
 	@echo "Cortex Makefile"
@@ -44,6 +44,40 @@ kill: ## Beendet den Prozess auf dem Cortex-Port (Standard: 9123)
 	kill -9 $$PID 2>/dev/null || kill $$PID 2>/dev/null || (echo "Fehler beim Beenden des Prozesses"; exit 1); \
 	echo "Prozess $$PID beendet"
 
+copy-skill: ## Kopiert das Cortex-Skill nach ~/.openclaw/workspace/skills
+	@mkdir -p ~/.openclaw/workspace/skills
+	cp -R skills/cortex/ ~/.openclaw/workspace/skills
+	@echo "Skill kopiert nach ~/.openclaw/workspace/skills/cortex"
+
+benchmark: build ## Führt alle Benchmarks aus (API + Embeddings)
+	@echo "=== API Benchmark ==="
+	@$(MAKE) benchmark-api
+	@echo ""
+	@echo "=== Embeddings Benchmark ==="
+	@$(MAKE) benchmark-embeddings
+
+benchmark-api: build ## Führt API-Benchmark aus (benötigt laufenden Server). Usage: make benchmark-api COUNT=50
+	@if ! curl -s http://localhost:9123/health > /dev/null 2>&1; then \
+		echo "Fehler: Server läuft nicht auf http://localhost:9123"; \
+		echo "Starte Server mit: make run (in separatem Terminal) oder make service-start"; \
+		exit 1; \
+	fi
+	@./cortex-cli benchmark $(or $(COUNT),50)
+
+# Helper target to capture positional arguments
+_benchmark-embeddings-args:
+	@:
+
+benchmark-embeddings: build _benchmark-embeddings-args ## Führt Embedding-Benchmark aus. Usage: make benchmark-embeddings [COUNT] [SERVICE] oder make benchmark-embeddings COUNT=100 SERVICE=both
+	@ARGS="$(filter-out benchmark-embeddings _benchmark-embeddings-args,$(MAKECMDGOALS))"; \
+	if [ -n "$$ARGS" ]; then \
+		COUNT=$$(echo $$ARGS | awk '{print $$1}'); \
+		SERVICE=$$(echo $$ARGS | awk '{print $$2}'); \
+		./scripts/benchmark-embeddings.sh $${COUNT:-100} $${SERVICE:-both}; \
+	else \
+		./scripts/benchmark-embeddings.sh $(or $(COUNT),100) $(or $(SERVICE),both); \
+	fi
+
 service-install: build ## Installiert systemd User Service-Datei
 	@mkdir -p ~/.config/systemd/user
 	@sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service
@@ -79,5 +113,11 @@ service-status: service-reload ## Zeigt den Status des Services
 
 service-logs: ## Zeigt die Logs des Services (follow mode)
 	journalctl --user -u cortex-server.service -f
+
+# Catch-all für Positionsargumente bei benchmark-embeddings
+%:
+	@if [ "$@" != "benchmark-embeddings" ] && [ "$@" != "_benchmark-embeddings-args" ]; then \
+		:; \
+	fi
 
 .DEFAULT_GOAL := help

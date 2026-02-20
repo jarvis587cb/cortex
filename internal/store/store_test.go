@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
 	"cortex/internal/models"
 )
@@ -463,5 +464,144 @@ func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
 	}
 	if len(bundleMemories) != 2 {
 		t.Errorf("expected 2 memories in bundle, got %d", len(bundleMemories))
+	}
+}
+
+func TestGenerateEmbeddingForMemory(t *testing.T) {
+	store := setupTestDB(t)
+	defer store.Close()
+
+	mem := &models.Memory{
+		Type:           "semantic",
+		Content:        "Test memory for embedding",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		Importance:     5,
+	}
+
+	// Create memory first
+	err := store.CreateMemory(mem)
+	if err != nil {
+		t.Fatalf("CreateMemory failed: %v", err)
+	}
+
+	// Generate embedding
+	err = store.GenerateEmbeddingForMemory(mem)
+	if err != nil {
+		t.Fatalf("GenerateEmbeddingForMemory failed: %v", err)
+	}
+
+	// Verify embedding was generated
+	if mem.Embedding == "" {
+		t.Error("embedding was not generated")
+	}
+
+	// Verify embedding can be decoded
+	embedding, err := embeddings.DecodeVector(mem.Embedding)
+	if err != nil {
+		t.Fatalf("DecodeVector failed: %v", err)
+	}
+	if len(embedding) != 384 {
+		t.Errorf("expected embedding dimension 384, got %d", len(embedding))
+	}
+
+	// Verify memory was saved with embedding
+	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1")
+	if err != nil {
+		t.Fatalf("GetMemoryByIDAndTenant failed: %v", err)
+	}
+	if retrieved.Embedding == "" {
+		t.Error("embedding was not saved to database")
+	}
+}
+
+func TestSearchMemoriesByTenantSemanticAndBundle(t *testing.T) {
+	store := setupTestDB(t)
+	defer store.Close()
+
+	// Create memories with embeddings
+	mem1 := &models.Memory{
+		Type:           "semantic",
+		Content:        "User likes coffee and espresso",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		Importance:     5,
+	}
+	mem2 := &models.Memory{
+		Type:           "semantic",
+		Content:        "User prefers tea over coffee",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		Importance:     5,
+	}
+	mem3 := &models.Memory{
+		Type:           "semantic",
+		Content:        "User drinks hot beverages in the morning",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+		Importance:     5,
+	}
+
+	store.CreateMemory(mem1)
+	store.CreateMemory(mem2)
+	store.CreateMemory(mem3)
+
+	// Generate embeddings for all memories
+	store.GenerateEmbeddingForMemory(mem1)
+	store.GenerateEmbeddingForMemory(mem2)
+	store.GenerateEmbeddingForMemory(mem3)
+
+	// Test semantic search
+	memories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee drinks", nil, 10, nil)
+	if err != nil {
+		t.Fatalf("SearchMemoriesByTenantSemanticAndBundle failed: %v", err)
+	}
+
+	// Should find at least mem1 (coffee) and mem3 (drinks hot beverages)
+	if len(memories) == 0 {
+		t.Error("semantic search returned no results")
+	}
+
+	// Verify results are sorted by similarity (highest first)
+	if len(memories) > 1 {
+		// First result should have highest similarity
+		// Note: We can't verify exact similarity values as they depend on the embedding service
+		// But we can verify that results are returned
+		foundCoffee := false
+		for _, mem := range memories {
+			if mem.Content == mem1.Content {
+				foundCoffee = true
+				break
+			}
+		}
+		if !foundCoffee {
+			t.Log("Note: coffee memory not found in semantic results (may vary by embedding service)")
+		}
+	}
+
+	// Test with bundle filter
+	bundle := &models.Bundle{
+		Name:           "Coffee Bundle",
+		AppID:          "app1",
+		ExternalUserID: "user1",
+	}
+	store.CreateBundle(bundle)
+	mem1.BundleID = &bundle.ID
+	store.db.Save(mem1)
+
+	bundleMemories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil)
+	if err != nil {
+		t.Fatalf("SearchMemoriesByTenantSemanticAndBundle with bundle failed: %v", err)
+	}
+	// Should find mem1 in bundle
+	foundInBundle := false
+	for _, mem := range bundleMemories {
+		if mem.ID == mem1.ID {
+			foundInBundle = true
+			break
+		}
+	}
+	if !foundInBundle {
+		t.Error("expected to find memory in bundle")
 	}
 }

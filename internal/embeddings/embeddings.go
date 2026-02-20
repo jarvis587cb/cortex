@@ -238,12 +238,23 @@ func (g *GTEEmbeddingService) Close() error {
 var (
 	globalEmbeddingService EmbeddingService
 	serviceOnce            sync.Once
+	serviceMu              sync.Mutex // Für Test-Reset
 )
+
+// resetEmbeddingService resetzt den globalen Embedding-Service (nur für Tests)
+func resetEmbeddingService() {
+	serviceMu.Lock()
+	defer serviceMu.Unlock()
+	globalEmbeddingService = nil
+	serviceOnce = sync.Once{}
+}
 
 // GetEmbeddingService gibt den verfügbaren Embedding-Service zurück
 // Versucht zuerst gte-go zu laden (falls CORTEX_EMBEDDING_MODEL_PATH gesetzt),
 // sonst Fallback auf Hash-basierten Service
 func GetEmbeddingService() EmbeddingService {
+	serviceMu.Lock()
+	defer serviceMu.Unlock()
 	serviceOnce.Do(func() {
 		modelPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
 		if modelPath != "" {

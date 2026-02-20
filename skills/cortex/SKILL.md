@@ -10,9 +10,6 @@ description: |-
 
 # Cortex – Lokales Gedächtnis
 
-> **Hinweis:** Cortex ist eine lokale Alternative zu Vanar Neutron. **Kein API-Key erforderlich!**  
-> Vergleich mit dem [OpenClaw Integration Guide](https://openclaw.vanarchain.com/guide-openclaw): Siehe [docs/VERGLEICH_OPENCLAW_GUIDE.md](../../docs/VERGLEICH_OPENCLAW_GUIDE.md)
-
 ## Server
 
 ```bash
@@ -56,6 +53,101 @@ cortex-cli relation-get <from>                   # Relations abrufen
 cortex-cli context-create "agent" episodic '{}'
 cortex-cli context-list "agent"
 cortex-cli context-get <id>
+
+# API-Key-Verwaltung
+cortex-cli api-key create [env_file]    # API-Key generieren und in .env speichern
+cortex-cli api-key show [env_file]     # Aktuellen API-Key anzeigen (letzte 4 Zeichen)
+cortex-cli api-key delete [env_file]  # API-Key aus .env entfernen
+
+# Embeddings
+cortex-cli generate-embeddings [batchSize]  # Embeddings für Memories nachziehen (Standard: 10, Max: 100)
+```
+
+**Hinweis:** Die API-Key-Funktion ist optional. Für lokale Installationen ist kein API-Key erforderlich. Die Funktion ist nützlich für Produktionsumgebungen oder wenn mehrere Clients auf denselben Server zugreifen.
+
+**Beispiele:**
+```bash
+# API-Key erstellen (Standard: .env im Projekt-Root)
+cortex-cli api-key create
+
+# API-Key in spezifischer Datei erstellen
+cortex-cli api-key create /path/to/.env
+
+# Aktuellen Key anzeigen
+cortex-cli api-key show
+
+# Key löschen
+cortex-cli api-key delete
+
+# Embeddings für bestehende Memories generieren
+cortex-cli generate-embeddings 50
+```
+
+## Embeddings & Semantische Suche
+
+Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**. Beim Speichern von Memories werden automatisch Embeddings generiert, die für die semantische Suche verwendet werden.
+
+### Embedding-Modi
+
+Cortex bietet zwei Embedding-Methoden:
+
+#### 1. **GTE-Small Modell** (Empfohlen für beste Qualität)
+
+- ✅ **384-dimensionale Embeddings** – GTE-Small Modell (Alibaba DAMO Academy)
+- ✅ **Hochwertige Semantik** – State-of-the-art Text-Embeddings
+- ✅ **Vollständig lokal** – Keine externe API nötig
+- ✅ **Keine API-Keys** – Funktioniert komplett offline
+- ⚠️ **Modell-Download erforderlich** – ~70MB Modell-Datei
+
+**Setup:**
+```bash
+# 1. Modell herunterladen und konvertieren
+./scripts/download-gte-model.sh
+
+# 2. In .env aktivieren
+echo "CORTEX_EMBEDDING_MODEL_PATH=~/.openclaw/gte-small.gtemodel" >> .env
+
+# 3. Server neu starten
+systemctl --user restart cortex.service
+```
+
+#### 2. **Hash-basierter Service** (Standard, kein Download)
+
+- ✅ **384-dimensionale Embeddings** – Lokale Hash-basierte Generierung
+- ✅ **Sofort einsatzbereit** – Kein Download erforderlich
+- ✅ **Vollständig offline** – Keine externe API nötig
+- ✅ **Keine API-Keys** – Funktioniert ohne Konfiguration
+- ✅ **Synonym-Erweiterung** – Begriffe wie Kaffee/Latte/Espresso werden verknüpft
+- ⚠️ **Niedrigere Qualität** – Für einfache Anwendungen ausreichend
+
+**Standard-Verhalten:** Wenn `CORTEX_EMBEDDING_MODEL_PATH` nicht gesetzt ist, wird automatisch der Hash-Service verwendet.
+
+### Embeddings nachziehen
+
+Wenn Memories ohne Embeddings gespeichert wurden (z.B. vor Aktivierung des GTE-Modells), können Embeddings nachträglich generiert werden:
+
+```bash
+# Embeddings für 10 Memories generieren (Standard)
+cortex-cli generate-embeddings
+
+# Embeddings für 50 Memories generieren
+cortex-cli generate-embeddings 50
+
+# Embeddings für maximal 100 Memories generieren
+cortex-cli generate-embeddings 100
+```
+
+**Hinweis:** Der Befehl verarbeitet Memories in Batches. Bei großen Datenmengen kann es sinnvoll sein, den Befehl mehrfach auszuführen.
+
+### Konfiguration
+
+Embeddings werden über Umgebungsvariablen konfiguriert:
+
+```bash
+# GTE-Small Modell aktivieren (optional)
+CORTEX_EMBEDDING_MODEL_PATH=~/.openclaw/gte-small.gtemodel
+
+# Ohne diese Variable wird automatisch der Hash-basierte Service verwendet
 ```
 
 ## Hooks (Auto-Recall / Auto-Capture)
@@ -174,6 +266,7 @@ CORTEX_AUTO_CAPTURE=false
 | POST | /seeds | Memory speichern |
 | POST | /seeds/query | Semantische Suche |
 | DELETE | /seeds/:id | Memory löschen |
+| POST | /seeds/generate-embeddings | Embeddings nachziehen |
 | POST | /entities?entity=... | Fact hinzufügen |
 | GET | /entities?name=... | Entity abrufen |
 | POST | /relations | Relation anlegen |

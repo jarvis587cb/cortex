@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"cortex/internal/embeddings"
 )
 
 const defaultBaseURL = "http://localhost:9123"
@@ -71,6 +73,8 @@ func main() {
 		err = cmdGenerateEmbeddings(client, cmdArgs)
 	case "benchmark":
 		err = cmdBenchmark(client, cmdArgs)
+	case "benchmark-embeddings":
+		err = cmdBenchmarkEmbeddings(cmdArgs)
 	case "api-key":
 		err = cmdAPIKey(cmdArgs)
 	case "entity-add":
@@ -124,6 +128,7 @@ Befehle:
   context-get <id>          - Ein Agent-Context abrufen
   generate-embeddings [batchSize] - Embeddings für Memories nachziehen (Standard: 10, Max: 100)
   benchmark [count]         - Performance-Benchmark (Standard: 20 Requests)
+  benchmark-embeddings [count] [service] - Benchmark Embedding-Generierung (count=50, service=local|gte|both)
   api-key <create|delete|show> [env_file] - API-Key verwalten (Standard: .env im Projekt)
   help                      - Zeigt diese Hilfe
 
@@ -154,9 +159,10 @@ Beispiele:
   %s context-get 1
   %s generate-embeddings 100
   %s benchmark 50
+  %s benchmark-embeddings 100 local
   %s api-key create
   %s api-key show
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {
@@ -568,6 +574,144 @@ func cmdBenchmark(client *cliClient, args []string) error {
 	summarize("store", storeTimes)
 	summarize("query", queryTimes)
 	summarize("delete", deleteTimes)
+
+	return nil
+}
+
+func cmdBenchmarkEmbeddings(args []string) error {
+	count := 50
+	serviceType := "both" // local, gte, both
+	
+	if len(args) >= 1 {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n < 1 {
+			return fmt.Errorf("count muss eine positive Ganzzahl sein")
+		}
+		count = n
+	}
+	if len(args) >= 2 {
+		serviceType = strings.ToLower(args[1])
+		if serviceType != "local" && serviceType != "gte" && serviceType != "both" {
+			return fmt.Errorf("service muss 'local', 'gte' oder 'both' sein")
+		}
+	}
+
+	fmt.Printf("Starte Embedding-Benchmark (N=%d, Service=%s)...\n\n", count, serviceType)
+
+	// Test-Texte mit verschiedenen Längen
+	testTexts := []struct {
+		name string
+		text string
+	}{
+		{"Kurz (10 Wörter)", "Dies ist ein kurzer Testtext mit genau zehn Wörtern für den Benchmark"},
+		{"Mittel (50 Wörter)", strings.Repeat("Dies ist ein Testtext mit mehreren Wörtern. ", 10)},
+		{"Lang (200 Wörter)", strings.Repeat("Dies ist ein längerer Testtext für umfangreichere Benchmarks. ", 40)},
+	}
+
+	// Benchmark-Funktion
+	benchmarkService := func(name string, service embeddings.EmbeddingService) {
+		fmt.Printf("=== %s ===\n", name)
+		
+		for _, testCase := range testTexts {
+			// Single Embedding Benchmark
+			var singleTimes []float64
+			for i := 0; i < count; i++ {
+				start := time.Now()
+				_, err := service.GenerateEmbedding(testCase.text, "text/plain")
+				if err != nil {
+					fmt.Printf("  Fehler bei %s: %v\n", testCase.name, err)
+					continue
+				}
+				singleTimes = append(singleTimes, time.Since(start).Seconds())
+			}
+			
+			// Batch Benchmark (10 Texte auf einmal)
+			var batchTimes []float64
+			batchTexts := make([]string, 10)
+			for i := range batchTexts {
+				batchTexts[i] = testCase.text
+			}
+			for i := 0; i < count/10; i++ {
+				start := time.Now()
+				_, err := service.GenerateEmbeddingsBatch(batchTexts, "text/plain")
+				if err != nil {
+					fmt.Printf("  Fehler bei Batch %s: %v\n", testCase.name, err)
+					continue
+				}
+				batchTimes = append(batchTimes, time.Since(start).Seconds())
+			}
+			
+			// Statistiken berechnen
+			summarize := func(times []float64) (avg, min, max float64) {
+				if len(times) == 0 {
+					return 0, 0, 0
+				}
+				var sum float64
+				min = times[0]
+				max = times[0]
+				for _, t := range times {
+					sum += t
+					if t < min {
+						min = t
+					}
+					if t > max {
+						max = t
+					}
+				}
+				avg = sum / float64(len(times))
+				return avg, min, max
+			}
+			
+			singleAvg, singleMin, singleMax := summarize(singleTimes)
+			batchAvg, batchMin, batchMax := summarize(batchTimes)
+			
+			fmt.Printf("  %s:\n", testCase.name)
+			fmt.Printf("    Single: n=%d avg=%.4fms min=%.4fms max=%.4fms\n", 
+				len(singleTimes), singleAvg*1000, singleMin*1000, singleMax*1000)
+			if len(batchTimes) > 0 {
+				fmt.Printf("    Batch (10): n=%d avg=%.4fms min=%.4fms max=%.4fms (pro Text: %.4fms)\n", 
+					len(batchTimes), batchAvg*1000, batchMin*1000, batchMax*1000, (batchAvg/10)*1000)
+			}
+		}
+		fmt.Println()
+	}
+
+	// Local Hash-based Service
+	if serviceType == "local" || serviceType == "both" {
+		localService := embeddings.NewLocalEmbeddingService()
+		benchmarkService("Local Hash-based Service", localService)
+	}
+
+	// GTE Service (falls verfügbar)
+	if serviceType == "gte" || serviceType == "both" {
+		modelPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
+		if modelPath == "" {
+			homeDir, _ := os.UserHomeDir()
+			modelPath = filepath.Join(homeDir, ".openclaw", "gte-small.gtemodel")
+		}
+		
+		// Expandiere ~ zu Home-Verzeichnis
+		if strings.HasPrefix(modelPath, "~") {
+			homeDir, err := os.UserHomeDir()
+			if err == nil {
+				modelPath = filepath.Join(homeDir, strings.TrimPrefix(modelPath, "~"))
+			}
+		}
+		
+		if _, err := os.Stat(modelPath); err == nil {
+			gteService, err := embeddings.NewGTEEmbeddingService(modelPath)
+			if err != nil {
+				fmt.Printf("Warnung: GTE-Service konnte nicht geladen werden: %v\n", err)
+				fmt.Printf("Modell-Pfad: %s\n\n", modelPath)
+			} else {
+				defer gteService.Close()
+				benchmarkService("GTE-Small Service", gteService)
+			}
+		} else {
+			fmt.Printf("Warnung: GTE-Modell nicht gefunden: %s\n", modelPath)
+			fmt.Printf("Setze CORTEX_EMBEDDING_MODEL_PATH oder verwende 'local' für Hash-Service\n\n")
+		}
+	}
 
 	return nil
 }
