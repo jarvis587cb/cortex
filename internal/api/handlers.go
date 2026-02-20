@@ -499,7 +499,7 @@ func (h *Handlers) HandleGenerateEmbeddings(w http.ResponseWriter, r *http.Reque
 	}
 
 	helpers.WriteJSON(w, http.StatusOK, map[string]string{
-		"message": "Embeddings generation started",
+		"message": "Embeddings generation completed",
 	})
 }
 

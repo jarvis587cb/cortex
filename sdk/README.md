@@ -146,7 +146,7 @@ Generate embeddings for existing memories that don't have embeddings yet.
 
 ```typescript
 const result = await client.generateEmbeddings(10); // Optional: batch size (default: 10, max: 100)
-// Returns: { message: "Embeddings generation started" }
+// Returns: { message: "Embeddings generation completed" }
 ```
 
 #### `health()`

@@ -214,7 +214,7 @@ Generiert Embeddings für alle Memories ohne Embedding.
 **Response (200 OK):**
 ```json
 {
-  "message": "Embeddings generation started"
+  "message": "Embeddings generation completed"
 }
 ```
 
