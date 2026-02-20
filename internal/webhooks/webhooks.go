@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -73,7 +74,10 @@ func DeliverWebhook(config WebhookConfig, event EventType, data map[string]inter
 	if err != nil {
 		return fmt.Errorf("failed to deliver webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("webhook delivery failed with status %d", resp.StatusCode)
