@@ -458,7 +458,7 @@ func cmdContextGet(client *cliClient, args []string) error {
 	if err != nil || id <= 0 {
 		return fmt.Errorf("id muss eine positive Ganzzahl sein")
 	}
-	path := "/agent-contexts/" + strconv.FormatInt(id, 10)
+	path := "/agent-contexts/" + strconv.FormatInt(id, 10) + "?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
 	data, code, err := client.do(http.MethodGet, path, nil)
 	if err != nil {
 		return err

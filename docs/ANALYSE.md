@@ -103,6 +103,7 @@ flowchart TB
 - **Behoben:** `UnmarshalEntityData` und `UnmarshalMetadata` gaben bei JSON-`"null"` (z. B. in der DB) `nil` zurück. Aufrufer wie `HandleSetFact` führten danach `data[req.Key] = req.Value` aus und erzeugten eine **Panic**. Beide Hilfsfunktionen liefern nun in diesem Fall ein leeres `map[string]any{}`. Siehe [internal/helpers/helpers.go](../internal/helpers/helpers.go) und Tests `TestUnmarshalEntityDataNull`, `TestUnmarshalMetadataNull`.
 - **Behoben:** **Path-Traversal** bei Backup/Restore: Die Query-Parameter `path` wurden ungeprüft an `BackupDatabase` bzw. `CopyFile`/`FileExists` übergeben. Es gibt nun `helpers.ValidateBackupPath`; ungültige Pfade → 400. Tests: `TestValidateBackupPath`.
 - **Behoben:** **Tenant-Isolation:** `GET /agent-contexts/:id` lieferte jeden Agent-Context nur anhand der ID (ohne Tenant-Prüfung). Jetzt sind `appId` und `externalUserId` (Query) erforderlich; es wird `GetAgentContextByIDAndTenant` verwendet. `DELETE /webhooks/:id` löschte beliebige Webhooks; jetzt ist `appId` (Query) erforderlich, es wird nur das Webhook mit passendem `app_id` gelöscht (`GetWebhookByIDAndApp`).
+- **Behoben:** **CLI:** `context-get <id>` sendete keine Tenant-Parameter; die API verlangt sie seit dem Tenant-Fix. Die CLI hängt nun `?appId=...&externalUserId=...` (aus client.appID/client.userID) an die Anfrage.
 - **Überprüft:** Tenant-Isolation bei Delete (Seeds, Bundles) ist korrekt; ID-Parsing und Pfad-Extraktion (z. B. `/seeds/123`) mit Tests; Race-Tests (`go test -race ./...`) laufen ohne Fehler.
 
 ---
