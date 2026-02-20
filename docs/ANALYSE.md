@@ -1,224 +1,103 @@
-# Projektanalyse: Cortex
+# Cortex – Projektanalyse
 
-**Datum:** 2026-02-19  
-**Version:** 1.0
+## 1. Zweck und Positionierung
 
-## Projektübersicht
+**Cortex** ist ein leichtgewichtiges, **vollständig lokales** „Gedächtnis“ für OpenClaw-Agenten. Es bietet dieselben API-Formate wie **Vanar Neutron**, ohne Cloud oder API-Keys. Nutzung: persistente Erinnerungen (Memories), semantische Suche, Entities/Relations (Knowledge Graph), Agent Contexts, Bundles, Webhooks und optionales Rate-Limiting/API-Key-Auth.
 
-Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als persistentes "Gehirn" für OpenClaw-Agenten dient. Es speichert Erinnerungen (Memories), Entities mit Fakten sowie Relationen zwischen Entities.
+---
 
-## Code-Statistiken
+## 2. Tech-Stack
 
-- **Go-Code:** 866 Zeilen (6 Dateien)
-- **Bash-Scripts:** 3 Scripts + 1 gemeinsame Library
-- **Dependencies:** Minimal (nur GORM + SQLite)
-- **Git-Historie:** 2 Commits (Initial + README-Update)
+| Schicht        | Technologie                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Backend**    | Go 1.23, `net/http` (kein Framework)                                                                       |
+| **Datenbank**  | SQLite via [glebarez/sqlite](../internal/store/store.go) (pure Go, kein cgo), GORM                         |
+| **Embeddings** | Optional [gte-go](../internal/embeddings/embeddings.go) (GTE-Small) oder Hash-basierter Service            |
+| **Frontend**   | React 19, React Router 7, TypeScript, Vite 7 → Build in `internal/dashboard/dist`, vom Server ausgeliefert |
+| **SDK**        | TypeScript ([sdk/](../sdk/)), Package `@cortex/memory-sdk`                                                 |
+| **Deployment** | Makefile, Docker, systemd (User-Service)                                                                   |
 
-## Architektur-Analyse
+---
 
-### Go-Server-Struktur
+## 3. Architektur (High-Level)
 
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    CLI[cortex-cli]
+    SDK[TypeScript SDK]
+    OpenClaw[OpenClaw Hooks]
+    Dashboard[React Dashboard]
+  end
+
+  subgraph server [cortex-server]
+    API[internal/api Handlers]
+    MW[internal/middleware]
+    Store[internal/store]
+    Emb[internal/embeddings]
+    Models[internal/models]
+  end
+
+  DB[(SQLite)]
+  API --> MW
+  MW --> Store
+  Store --> DB
+  API --> Emb
+  Store --> Models
+
+  CLI --> API
+  SDK --> API
+  OpenClaw --> API
+  Dashboard --> API
 ```
-main.go (67 Zeilen)      → Server-Start, Routing
-models.go (104 Zeilen)   → 4 Datenmodelle + 7 Request/Response-Types
-store.go (178 Zeilen)    → Datenbank-Operationen (CRUD)
-handlers.go (340 Zeilen) → HTTP-Handler für alle Endpunkte
-helpers.go (155 Zeilen)  → Utility-Funktionen, JSON-Helpers
-middleware.go (22 Zeilen)→ HTTP-Middleware (Method-Validation)
-```
 
-### Code-Organisation
+- **Einstiegspunkte:** [cmd/cortex-server/main.go](../cmd/cortex-server/main.go) (HTTP-Server, Port 9123), [cmd/cortex-cli/main.go](../cmd/cortex-cli/main.go) (CLI, spricht mit der API).
+- **Routing:** In `main.go`: Health, Neutron-kompatible Seeds-API (`/seeds`, `/seeds/query`, `/seeds/:id`, generate-embeddings), Bundles, Entities, Relations, Agent-Contexts, Stats; optional API-Key + Rate-Limit-Middleware.
+- **Daten:** [internal/models/models.go](../internal/models/models.go) definiert die Modelle; [internal/store/](../internal/store/) (store, export, analytics) kapselt alle DB-Operationen.
 
-- ✅ Klare Trennung: Models, Store, Handlers, Helpers
-- ✅ Single Responsibility: Jede Datei hat einen klaren Zweck
-- ✅ GORM als ORM für Datenbankzugriffe
-- ✅ Pure-Go SQLite (kein cgo)
+---
 
-## API-Endpunkte
+## 4. Wichtige Verzeichnisse und Dateien
 
-### Neutron-kompatible Seeds-API
+| Pfad | Rolle |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [cmd/cortex-server/](../cmd/cortex-server/) | Server-`main`: Logging, Store-Init, Router, Einbindung Dashboard |
+| [cmd/cortex-cli/](../cmd/cortex-cli/) | CLI: store, query, delete, stats, entity-*, relation-*, context-*, api-key, benchmark |
+| [internal/api/handlers.go](../internal/api/handlers.go) | HTTP-Handler für alle Endpunkte |
+| [internal/store/](../internal/store/) | GORM/SQLite: Store, Export, Analytics (+ Tests) |
+| [internal/models/models.go](../internal/models/models.go) | Datenmodelle |
+| [internal/embeddings/](../internal/embeddings/) | Embedding-Erzeugung (Hash oder GTE), Vektor-Utils |
+| [internal/middleware/](../internal/middleware/) | Auth, Rate-Limit (Token-Bucket) |
+| [internal/dashboard/serve.go](../internal/dashboard/serve.go) | Auslieferung der eingebetteten SPA unter `/dashboard/` |
+| [dashboard/](../dashboard/) | React/Vite-Quellcode (Overview, Memories, Entities, Relations, Settings) |
+| [sdk/](../sdk/) | TypeScript-SDK für die Memory-API |
+| [skills/cortex/](../skills/cortex/) | OpenClaw-Skill: `hooks.sh` (recall/capture), SKILL.md, systemd-Service |
+| [docs/](../docs/) | API, Neutron-Vergleich, Integration, Performance, Analysen |
 
-- `POST /seeds` – Memory speichern (Multi-Tenant)
-- `POST /seeds/query` – Memory-Suche (Textsuche)
-- `DELETE /seeds/:id` – Memory löschen (tenant-sicher)
+---
 
-### Cortex-API (Original)
+## 5. Build, Run und CI
 
-- `POST /remember` – Erinnerung speichern
-- `GET /recall` – Erinnerungen abrufen
-- `POST /entities` – Fakt setzen
-- `GET /entities` – Entity abrufen/listen
-- `POST /relations` – Relation hinzufügen
-- `GET /relations` – Relationen abrufen
-- `GET /stats` – Statistiken
-- `GET /health` – Health-Check
+- **Build:** `make build` → `cortex-server` + `cortex-cli`. Dashboard: `make build-dashboard` (→ `internal/dashboard/dist`), danach `make build` für Server inkl. eingebettetem Dashboard.
+- **Run:** `make run` (Server), `make dev` (Vite + Server mit Proxy für HMR).
+- **Deployment:** systemd (`make service-install`, `service-enable`, `service-start`) oder `docker-compose up -d`.
+- **CI:** [.github/workflows/ci.yml](../.github/workflows/ci.yml) – Go 1.23, Tests mit Race + Coverage, Codecov.
 
-**Gesamt:** 11 Endpunkte
+---
 
-## Datenmodell
+## 6. Konfiguration (Auszug)
 
-### 3 Haupt-Entitäten
+Über `.env` (siehe [.env.example](../.env.example)): `CORTEX_DB_PATH`, `CORTEX_PORT` (9123), `CORTEX_LOG_LEVEL`, `CORTEX_RATE_LIMIT`/`CORTEX_RATE_LIMIT_WINDOW`, optional `CORTEX_API_KEY`, optional `CORTEX_EMBEDDING_MODEL_PATH` für GTE-Small.
 
-1. **Memory** (10 Felder) – Erinnerungen mit Multi-Tenant-Support
-2. **Entity** (5 Felder) – Entities mit JSON-Fakten
-3. **Relation** (7 Felder) – Relationen zwischen Entities
+---
 
-**Request/Response-Types:** 7 Types für API-Kompatibilität
+## 7. Dokumentation (Überblick)
 
-## Multi-Tenant-Architektur
+- **Root:** [README.md](../README.md) – Quick Start, Features, Konfiguration, CLI, API, Embeddings, SDK, Skill, Makefile, Troubleshooting.
+- **docs/:** [README.md](README.md) – Index; u.a. [API.md](API.md), [TEST_REPORT.md](TEST_REPORT.md), Neutron-Vergleich, [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md), [PERFORMANCE.md](PERFORMANCE.md), [ANALYSE.md](ANALYSE.md) (diese Projektanalyse).
 
-### Isolation
+---
 
-- `app_id` + `external_user_id` als Composite-Key
-- Indizierte Spalten für Performance
-- Tenant-sichere Queries in allen Operationen
-- Standardwerte: `appId="openclaw"`, `externalUserId="default"`
+## 8. Kurzfassung
 
-## Scripts-Infrastruktur
-
-### 3 Bash-Scripts
-
-1. `cortex-cli.sh` (251 Zeilen) – Vollständiges CLI-Tool
-2. `benchmark.sh` (91 Zeilen) – Performance-Benchmarks
-3. `test-e2e.sh` (236 Zeilen) – End-to-End-Tests
-
-### Gemeinsame Library
-
-- `lib/common.sh` (119 Zeilen) – Wiederverwendbare Funktionen
-  - Logging (info, success, error, warning)
-  - HTTP-Helpers (curl_with_status, parse_http_response)
-  - JSON-Helpers (format_json, extract_id, count_items)
-  - Validierung (is_positive_integer, has_jq)
-
-## Code-Qualität
-
-### Stärken
-
-- ✅ Klare Struktur und Trennung der Verantwortlichkeiten
-- ✅ Konsistente Fehlerbehandlung
-- ✅ Umfassende Dokumentation (README aktualisiert)
-- ✅ Test-Scripts vorhanden (E2E, Benchmark)
-- ✅ CLI-Tool für einfache Nutzung
-- ✅ Neutron-Kompatibilität für Migration
-- ✅ Multi-Tenant-Support implementiert
-- ✅ Pure-Go (kein cgo)
-
-### Verbesserungspotenzial
-
-- ⚠️ Kein Plugin-Verzeichnis (README markiert als "geplant")
-- ⚠️ Keine Go Unit-Tests (nur Bash-E2E-Tests)
-- ⚠️ Textsuche statt semantischer Suche (keine Embeddings)
-- ⚠️ Keine Authentifizierung/Authorization
-- ⚠️ Keine Rate-Limiting
-- ⚠️ Begrenzte Request-Validierung
-- ⚠️ Keine Logging-Konfiguration (nur stdout)
-- ⚠️ Keine Metriken/Monitoring
-
-## Dependencies-Analyse
-
-### Direkte Dependencies
-
-- `github.com/glebarez/sqlite` v1.11.0 – Pure-Go SQLite
-- `gorm.io/gorm` v1.25.7 – ORM
-
-### Indirekte Dependencies
-
-9 Pakete (alle transitive von GORM/SQLite)
-
-**Gesamt:** Sehr minimal, keine externen Services nötig
-
-## Sicherheit
-
-### Aktuell
-
-- ❌ Keine Authentifizierung
-- ❌ Keine Authorization
-- ⚠️ Keine Input-Sanitization (außer Basis-Validierung)
-- ❌ Keine Rate-Limiting
-- ✅ SQL-Injection-Schutz durch GORM (Prepared Statements)
-
-### Empfehlungen
-
-- Authentifizierung hinzufügen (API-Keys, JWT)
-- Input-Validierung erweitern
-- Rate-Limiting implementieren
-- CORS-Konfiguration
-
-## Performance
-
-### Aktuell
-
-- ✅ SQLite (gut für Single-Instance)
-- ✅ Indizierte Spalten für Multi-Tenant-Queries
-- ✅ Benchmark-Script vorhanden
-- ⚠️ Keine Caching-Strategie
-- ⚠️ Keine Connection-Pooling-Konfiguration
-
-### Skalierung
-
-- SQLite limitiert auf Single-Instance
-- Für Multi-Instance: PostgreSQL-Migration nötig
-
-## Dokumentation
-
-### README.md
-
-Umfassend aktualisiert:
-- Architektur dokumentiert
-- Installation & Start
-- API-Endpunkte mit Beispielen
-- CLI-Tool-Dokumentation
-- Troubleshooting
-- Scripts-Dokumentation
-
-### Code-Dokumentation
-
-- ⚠️ Keine GoDoc-Kommentare
-- ⚠️ Inline-Kommentare minimal
-- ✅ README deckt die meisten Aspekte ab
-
-## Entwicklungsstand
-
-### Fertig
-
-- ✅ Go-Server vollständig implementiert
-- ✅ Alle API-Endpunkte funktionsfähig
-- ✅ Multi-Tenant-Support
-- ✅ CLI-Tool
-- ✅ E2E-Tests
-- ✅ Benchmark-Scripts
-- ✅ Dokumentation aktualisiert
-
-### In Entwicklung
-
-- 🔄 OpenClaw-Plugin (TypeScript)
-
-### Nicht vorhanden
-
-- ❌ Unit-Tests (Go)
-- ❌ Authentifizierung
-- ❌ Semantische Suche
-- ❌ Docker-Support
-- ❌ CI/CD-Pipeline
-
-## Empfohlene nächste Schritte
-
-1. **Go Unit-Tests hinzufügen** – Wichtig für Code-Qualität
-2. **Docker-Support** – Einfach umzusetzen, verbessert Deployment
-3. **Logging verbessern** – Strukturiertes Logging für besseres Monitoring
-4. **Authentifizierung** – Einfache API-Key-Authentifizierung
-5. **CI/CD-Pipeline** – GitHub Actions für automatische Tests
-6. **OpenClaw-Plugin** – TypeScript-Plugin implementieren
-
-## Fazit
-
-Cortex ist ein **gut strukturiertes, leichtgewichtiges Backend** für Memory-Management. Der Code ist sauber, dokumentiert und bietet eine solide Basis. Die Neutron-Kompatibilität erleichtert die Migration. Für Produktionseinsatz sollten Authentifizierung, Unit-Tests und möglicherweise semantische Suche ergänzt werden.
-
-### Gesamtbewertung: 8/10
-
-- **Architektur:** Sehr gut ⭐⭐⭐⭐⭐
-- **Code-Qualität:** Gut ⭐⭐⭐⭐
-- **Dokumentation:** Sehr gut ⭐⭐⭐⭐⭐
-- **Test-Abdeckung:** Ausbaufähig ⭐⭐⭐
-- **Sicherheit:** Ausbaufähig ⭐⭐
-- **Performance:** Gut (für Single-Instance) ⭐⭐⭐⭐
+Cortex ist ein **Go-Backend** mit SQLite und GORM, **Neutron-kompatibler REST-API**, optionalen lokalen Embeddings (Hash oder GTE-Small), **React-Dashboard** (Vite), **TypeScript-SDK** und **OpenClaw-Skill** mit Recall/Capture-Hooks. Alles lokal betreibbar; Build/Start über Makefile, Docker oder systemd; ausführliche Doku im README und unter `docs/`.
