@@ -22,7 +22,7 @@ Gleiche Befehle wie im [OpenClaw Integration Guide](https://openclaw.vanarchain.
 
 **Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` (oder `NEUTRON_*`); optional `CORTEX_API_KEY`; für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
 
-Siehe [skills/cortex-memory/SKILL.md](../skills/cortex-memory/SKILL.md) für Details und **hooks.sh** (ein Einstiegspunkt für OpenClaw).
+Siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md) für Details und **hooks.sh** (`skills/cortex/hooks.sh`, Einstiegspunkt für OpenClaw).
 
 ### `api-key.sh` – API-Key anlegen / löschen
 

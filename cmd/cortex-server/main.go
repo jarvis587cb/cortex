@@ -165,7 +165,7 @@ func main() {
 
 	addr := ":" + port
 	slog.Info("cortex server starting", "addr", addr, "db", dbPath)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, middleware.LoggingMiddleware(mux)); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}
