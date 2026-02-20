@@ -34,7 +34,8 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 - ✅ **Rate Limiting**: Token-Bucket-Algorithmus für API-Schutz
 
 ### Technische Features
-- ✅ **Leichtgewichtig**: Pure-Go (kein cgo), keine externen Dependencies außer SQLite
+- ✅ **Leichtgewichtig**: Pure-Go (kein cgo), minimale Dependencies
+- ✅ **Embedding-Support**: Optional GTE-Small via `github.com/rcarmo/gte-go` oder Hash-basiert (Standard)
 - ✅ **REST-API**: Einfache HTTP-Endpunkte für alle Operationen
 - ✅ **CLI-Tool**: Vollständiges CLI (`cortex-cli`) ohne jq/curl-Abhängigkeit
 - ✅ **Docker Support**: Containerisierung für einfaches Deployment
@@ -86,6 +87,20 @@ curl http://localhost:9123/health
 - **Go 1.23+** für Build und Entwicklung
 - **Bash** für Scripts (optional)
 - **SQLite** (wird automatisch von Go-Binary verwendet)
+
+### Dependencies
+
+Cortex verwendet folgende Haupt-Dependencies:
+
+- **`github.com/glebarez/sqlite`** – Pure-Go SQLite-Implementierung (kein cgo)
+- **`gorm.io/gorm`** – ORM für Datenbank-Operationen
+- **`github.com/rcarmo/gte-go`** – Go-Binding für GTE-Small Embedding-Modell (optional)
+
+**Hinweis zu `github.com/rcarmo/gte-go`:**
+- Diese Dependency wird nur verwendet, wenn `CORTEX_EMBEDDING_MODEL_PATH` gesetzt ist
+- Ohne diese Konfiguration verwendet Cortex den Hash-basierten Embedding-Service (keine externe Dependency)
+- Die Bibliothek ermöglicht die Verwendung des GTE-Small Modells für hochwertige semantische Embeddings
+- Siehe [Embeddings & Semantische Suche](#-semantische-suche--embeddings) für Details zur Konfiguration
 
 ### Build
 
@@ -448,6 +463,12 @@ Cortex bietet zwei Embedding-Methoden:
 - ✅ **Vollständig lokal** – Keine externe API nötig
 - ✅ **Keine API-Keys** – Funktioniert komplett offline
 - ⚠️ **Modell-Download erforderlich** – ~70MB Modell-Datei
+- ✅ **Pure Go** – Verwendet `github.com/rcarmo/gte-go` für Go-Bindings
+
+**Technische Details:**
+- Verwendet die Go-Bibliothek [`github.com/rcarmo/gte-go`](https://github.com/rcarmo/gte-go) für GTE-Small Modell-Unterstützung
+- Die Bibliothek wird automatisch via `go mod` installiert, wenn das Modell verwendet wird
+- Das Modell wird als `.gtemodel` Datei geladen (nicht zur Compile-Zeit eingebettet)
 
 **Setup:**
 
