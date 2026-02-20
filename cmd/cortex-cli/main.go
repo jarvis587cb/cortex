@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,8 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const defaultBaseURL = "http://localhost:9123"
@@ -65,6 +69,10 @@ func main() {
 		err = cmdContextGet(client, cmdArgs)
 	case "generate-embeddings":
 		err = cmdGenerateEmbeddings(client, cmdArgs)
+	case "benchmark":
+		err = cmdBenchmark(client, cmdArgs)
+	case "api-key":
+		err = cmdAPIKey(cmdArgs)
 	case "help", "-h", "--help":
 		printHelp(os.Args[0])
 		os.Exit(0)
@@ -103,6 +111,8 @@ Befehle:
   context-list [agentId]    - Agent-Contexts auflisten
   context-get <id>          - Ein Agent-Context abrufen
   generate-embeddings [batchSize] - Embeddings für Memories nachziehen (Standard: 10, Max: 100)
+  benchmark [count]         - Performance-Benchmark (Standard: 20 Requests)
+  api-key <create|delete|show> [env_file] - API-Key verwalten (Standard: .env im Projekt)
   help                      - Zeigt diese Hilfe
 
 Umgebungsvariablen:
@@ -127,7 +137,10 @@ Beispiele:
   %s context-list "my-agent"
   %s context-get 1
   %s generate-embeddings 100
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+  %s benchmark 50
+  %s api-key create
+  %s api-key show
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {
@@ -433,5 +446,251 @@ func cmdGenerateEmbeddings(client *cliClient, args []string) error {
 		return fmt.Errorf("Fehler (HTTP %d): %s", code, string(data))
 	}
 	fmt.Println(string(data))
+	return nil
+}
+
+func cmdBenchmark(client *cliClient, args []string) error {
+	count := 20
+	if len(args) >= 1 {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n < 1 {
+			return fmt.Errorf("count muss eine positive Ganzzahl sein")
+		}
+		count = n
+	}
+
+	fmt.Printf("Starte Benchmark (N=%d, API=%s)...\n", count, client.baseURL)
+
+	var healthTimes, storeTimes, queryTimes, deleteTimes []float64
+	var storeIDs []int64
+
+	// Benchmark health
+	for i := 0; i < count; i++ {
+		start := time.Now()
+		_, code, err := client.do(http.MethodGet, "/health", nil)
+		if err != nil || code != http.StatusOK {
+			return fmt.Errorf("health check fehlgeschlagen: %v", err)
+		}
+		healthTimes = append(healthTimes, time.Since(start).Seconds())
+	}
+
+	// Benchmark store, query, delete
+	for i := 0; i < count; i++ {
+		content := fmt.Sprintf("benchmark-memory-%d-%d", i, time.Now().UnixNano())
+		
+		// Store
+		start := time.Now()
+		body := map[string]any{
+			"appId":          client.appID,
+			"externalUserId": client.userID,
+			"content":        content,
+			"metadata":       map[string]any{"type": "benchmark"},
+		}
+		data, code, err := client.do(http.MethodPost, "/seeds", body)
+		if err != nil || code != http.StatusOK {
+			return fmt.Errorf("store fehlgeschlagen: %v", err)
+		}
+		storeTimes = append(storeTimes, time.Since(start).Seconds())
+		
+		var res struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal(data, &res); err == nil && res.ID != 0 {
+			storeIDs = append(storeIDs, res.ID)
+		}
+
+		// Query
+		start = time.Now()
+		queryBody := map[string]any{
+			"appId":          client.appID,
+			"externalUserId": client.userID,
+			"query":          fmt.Sprintf("benchmark-memory-%d", i),
+			"limit":          5,
+		}
+		_, code, err = client.do(http.MethodPost, "/seeds/query", queryBody)
+		if err != nil || code != http.StatusOK {
+			return fmt.Errorf("query fehlgeschlagen: %v", err)
+		}
+		queryTimes = append(queryTimes, time.Since(start).Seconds())
+
+		// Delete
+		if i < len(storeIDs) {
+			start = time.Now()
+			path := fmt.Sprintf("/seeds/%d?appId=%s&externalUserId=%s", storeIDs[i], url.QueryEscape(client.appID), url.QueryEscape(client.userID))
+			_, code, err = client.do(http.MethodDelete, path, nil)
+			if err != nil || code != http.StatusOK {
+				return fmt.Errorf("delete fehlgeschlagen: %v", err)
+			}
+			deleteTimes = append(deleteTimes, time.Since(start).Seconds())
+		}
+	}
+
+	// Berechne Statistiken
+	summarize := func(name string, times []float64) {
+		if len(times) == 0 {
+			return
+		}
+		var sum, min, max float64
+		min = times[0]
+		max = times[0]
+		for _, t := range times {
+			sum += t
+			if t < min {
+				min = t
+			}
+			if t > max {
+				max = t
+			}
+		}
+		avg := sum / float64(len(times))
+		fmt.Printf("%s n=%d avg=%.4fs min=%.4fs max=%.4fs\n", name, len(times), avg, min, max)
+	}
+
+	fmt.Println("\nBenchmark Ergebnisse (N=" + strconv.Itoa(count) + ", API=" + client.baseURL + ")")
+	fmt.Println("==========================================")
+	summarize("health", healthTimes)
+	summarize("store", storeTimes)
+	summarize("query", queryTimes)
+	summarize("delete", deleteTimes)
+
+	return nil
+}
+
+func cmdAPIKey(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: api-key <create|delete|show> [env_file]")
+	}
+
+	cmd := args[0]
+	envFile := ""
+	if len(args) >= 2 {
+		envFile = args[1]
+	} else {
+		// Suche .env im aktuellen Verzeichnis oder Projekt-Root
+		if _, err := os.Stat(".env"); err == nil {
+			envFile = ".env"
+		} else {
+			// Versuche Projekt-Root zu finden
+			cwd, _ := os.Getwd()
+			projectRoot := cwd
+			for {
+				if _, err := os.Stat(filepath.Join(projectRoot, ".env")); err == nil {
+					envFile = filepath.Join(projectRoot, ".env")
+					break
+				}
+				parent := filepath.Dir(projectRoot)
+				if parent == projectRoot {
+					envFile = ".env"
+					break
+				}
+				projectRoot = parent
+			}
+		}
+	}
+
+	const varName = "CORTEX_API_KEY"
+	const keyPrefix = "ck_"
+
+	switch cmd {
+	case "create":
+		// Generiere Key
+		keyBytes := make([]byte, 32)
+		if _, err := rand.Read(keyBytes); err != nil {
+			return fmt.Errorf("Fehler beim Generieren des Keys: %w", err)
+		}
+		key := keyPrefix + hex.EncodeToString(keyBytes)
+
+		// Lese bestehende .env
+		var lines []string
+		if data, err := os.ReadFile(envFile); err == nil {
+			lines = strings.Split(string(data), "\n")
+		}
+
+		// Entferne alte CORTEX_API_KEY Zeile
+		var newLines []string
+		for _, line := range lines {
+			if !strings.HasPrefix(strings.TrimSpace(line), varName+"=") {
+				newLines = append(newLines, line)
+			}
+		}
+
+		// Füge neue Zeile hinzu
+		newLines = append(newLines, varName+"="+key)
+
+		// Schreibe .env
+		if err := os.WriteFile(envFile, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
+			return fmt.Errorf("Fehler beim Schreiben von %s: %w", envFile, err)
+		}
+
+		fmt.Printf("✓ API-Key in %s gesetzt\n", envFile)
+		fmt.Printf("\nNeuer API-Key (einmalig sichtbar – sicher aufbewahren):\n")
+		fmt.Printf("  %s\n\n", key)
+		fmt.Printf("Server starten mit: export %s=%s; ./cortex-server\n", varName, key)
+
+	case "delete":
+		if _, err := os.Stat(envFile); os.IsNotExist(err) {
+			fmt.Printf("Datei %s nicht gefunden – nichts zu löschen.\n", envFile)
+			return nil
+		}
+
+		data, err := os.ReadFile(envFile)
+		if err != nil {
+			return fmt.Errorf("Fehler beim Lesen von %s: %w", envFile, err)
+		}
+
+		lines := strings.Split(string(data), "\n")
+		var newLines []string
+		found := false
+		for _, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), varName+"=") {
+				found = true
+				continue
+			}
+			newLines = append(newLines, line)
+		}
+
+		if !found {
+			fmt.Printf("Kein Eintrag %s in %s gefunden.\n", varName, envFile)
+			return nil
+		}
+
+		if err := os.WriteFile(envFile, []byte(strings.Join(newLines, "\n")), 0644); err != nil {
+			return fmt.Errorf("Fehler beim Schreiben von %s: %w", envFile, err)
+		}
+
+		fmt.Printf("✓ API-Key aus %s entfernt\n", envFile)
+
+	case "show":
+		if _, err := os.Stat(envFile); os.IsNotExist(err) {
+			fmt.Printf("Datei %s nicht gefunden.\n", envFile)
+			return nil
+		}
+
+		data, err := os.ReadFile(envFile)
+		if err != nil {
+			return fmt.Errorf("Fehler beim Lesen von %s: %w", envFile, err)
+		}
+
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, varName+"=") {
+				key := strings.TrimPrefix(line, varName+"=")
+				key = strings.Trim(key, `"'`)
+				if len(key) > 4 {
+					fmt.Printf("Aktueller Key in %s (letzte 4 Zeichen): ...%s\n", envFile, key[len(key)-4:])
+				} else {
+					fmt.Printf("Key in %s gesetzt (Länge %d).\n", envFile, len(key))
+				}
+				return nil
+			}
+		}
+
+		fmt.Printf("Kein %s in %s gesetzt.\n", varName, envFile)
+
+	default:
+		return fmt.Errorf("Unbekannter Befehl: %s. Verwende: create, delete oder show", cmd)
+	}
+
 	return nil
 }

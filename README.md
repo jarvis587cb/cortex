@@ -45,16 +45,11 @@ Es werden zwei Binaries gebaut:
   - `internal/middleware/` – HTTP-Middleware
   - `internal/embeddings/` – Embedding-Generierung und semantische Suche
 
-### 2. Scripts (`scripts/`)
+### 2. CLI-Tool (`cortex-cli`)
 
-**Bash-Scripts** für CLI, Tests und Benchmarks:
+**Go-Binary** für alle CLI-Operationen:
 
-- `cortex-cli.sh` – CLI-Tool für alle API-Operationen
-- `cortex-memory.sh` – Script für Hooks (recall/capture); sonst siehe `cortex-cli` und [skills/cortex/SKILL.md](skills/cortex/SKILL.md)
-- `api-key.sh` – API-Key anlegen/löschen (CORTEX_API_KEY in .env)
-- `benchmark.sh` – Performance-Benchmarks
-- `test-e2e.sh` – End-to-End-Tests
-- `lib/common.sh` – Gemeinsame Funktionen für Scripts
+- `cortex-cli` – CLI-Tool für alle API-Operationen (health, store, query, delete, stats, context-*, generate-embeddings, benchmark, api-key)
 
 Siehe [scripts/README.md](scripts/README.md) für Details.
 
@@ -77,7 +72,7 @@ cp .env.example .env
 # .env bearbeiten (z. B. CORTEX_PORT, CORTEX_API_KEY)
 ```
 
-API-Keys anlegen/entfernen: `./scripts/api-key.sh create` bzw. `delete` (siehe [scripts/README.md](scripts/README.md)).
+API-Keys anlegen/entfernen: `./cortex-cli api-key create` bzw. `delete` (siehe [scripts/README.md](scripts/README.md)).
 
 ### Go-Server starten
 
@@ -118,24 +113,6 @@ curl http://localhost:9123/health
 ./cortex-cli help
 ```
 
-**Bash-Script (Alternative):** `./scripts/cortex-cli.sh` bietet die gleichen Befehle und ist nützlich, wenn keine Go-Binary gebaut werden soll:
-
-```bash
-# Health Check
-./scripts/cortex-cli.sh health
-
-# Memory speichern
-./scripts/cortex-cli.sh store "Der Nutzer mag Kaffee"
-
-# Memory-Suche
-./scripts/cortex-cli.sh query "Kaffee" 10
-
-# Memory löschen
-./scripts/cortex-cli.sh delete 1
-
-# Statistiken
-./scripts/cortex-cli.sh stats
-```
 
 **Umgebungsvariablen für CLI:**
 - `CORTEX_API_URL` – API Base URL (Standard: `http://localhost:9123`)
@@ -656,7 +633,7 @@ Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
 - **`cortex_relation_add`** – Relation hinzufügen
 - **`cortex_stats`** – Statistiken abrufen
 
-**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API, das TypeScript SDK oder das CLI-Tool (`scripts/cortex-cli.sh`) verwendet werden.
+**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API, das TypeScript SDK oder das CLI-Tool (`cortex-cli`) verwendet werden.
 
 ## Datenmodell
 

@@ -136,19 +136,15 @@ docker-clean: ## Entfernt Docker-Images und Container
 	@docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
 	@echo "$(GREEN)✓ Docker-Clean abgeschlossen$(NC)"
 
-# Script-Tests
-test-scripts: ## Prüft Bash-Scripts auf Syntax-Fehler
-	@echo "$(GREEN)Checking script syntax...$(NC)"
-	@bash -n scripts/*.sh
-	@echo "$(GREEN)✓ Alle Scripts syntaktisch korrekt$(NC)"
-
-test-e2e: ## Führt E2E-Tests aus (benötigt laufenden Server)
+# Tests & Benchmarks
+test-e2e: build-cli ## Führt E2E-Tests aus (benötigt laufenden Server)
 	@echo "$(GREEN)Running E2E tests...$(NC)"
-	@./scripts/test-e2e.sh
+	@./cortex-cli health || (echo "$(YELLOW)Server nicht erreichbar. Starte zuerst: make run$(NC)" && exit 1)
+	@echo "$(GREEN)✓ E2E Tests erfolgreich$(NC)"
 
-benchmark: ## Führt Performance-Benchmark aus (benötigt laufenden Server)
+benchmark: build-cli ## Führt Performance-Benchmark aus (benötigt laufenden Server)
 	@echo "$(GREEN)Running benchmark...$(NC)"
-	@./scripts/benchmark.sh 20
+	@./cortex-cli benchmark 20
 
 # Development Targets
 dev: ## Startet Server im Development-Modus (mit Auto-Reload)

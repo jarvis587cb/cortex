@@ -31,7 +31,7 @@ metadata:
 - `docs/API.md` – Vollständige API-Dokumentation
 - `docs/CORTEX_NEUTRON_ALTERNATIVE.md` – Neutron-Alternative, OpenClaw-Guide-Vergleich
 - `docs/VERGLEICH_NEUTRON.md` – Feature-für-Feature-Vergleich mit Neutron
-- `scripts/README.md` – Scripts (cortex-memory.sh, cortex-cli.sh)
+- `scripts/README.md` – CLI-Tool Dokumentation
 
 ## Was ist Cortex?
 
@@ -285,7 +285,7 @@ Vor jeder AI-Interaktion Recall, nach jedem Austausch Capture (z. B. für OpenCl
 ./skills/cortex/hooks.sh capture "Zusammenfassung oder Rohinhalt des Austauschs"
 ```
 
-`hooks.sh` ruft intern `scripts/cortex-memory.sh` auf. Anderer Pfad: `CORTEX_MEMORY_SCRIPT=/pfad/zu/cortex-memory.sh`.
+`hooks.sh` verwendet `cortex-cli` für Recall und Capture. Pfad kann überschrieben werden: `CORTEX_CLI_PATH=/pfad/zu/cortex-cli`.
 
 **Umgebungsvariablen:**
 
@@ -475,7 +475,7 @@ CLI-Befehle geben strukturierte JSON-Ausgaben zurück. Für bessere Lesbarkeit:
 - **docs/API.md** – Vollständige API
 - **docs/CORTEX_NEUTRON_ALTERNATIVE.md** – Neutron-Alternative, OpenClaw-Guide-Vergleich
 - **docs/VERGLEICH_NEUTRON.md** – Feature-für-Feature-Vergleich mit Neutron
-- **scripts/README.md** – Scripts (cortex-memory.sh, cortex-cli.sh)
+- **scripts/README.md** – CLI-Tool Dokumentation
 
 ## Lizenz
 
