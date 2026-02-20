@@ -8,6 +8,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
@@ -16,6 +17,11 @@ import (
 
 type CortexStore struct {
 	db *gorm.DB
+}
+
+// GetDB returns the underlying GORM database connection (for transactions)
+func (s *CortexStore) GetDB() *gorm.DB {
+	return s.db
 }
 
 func NewCortexStore(dbPath string) (*CortexStore, error) {
@@ -289,7 +295,13 @@ func (s *CortexStore) ListEntities() ([]models.Entity, error) {
 
 func (s *CortexStore) CreateOrUpdateEntity(ent *models.Entity) error {
 	ent.UpdatedAt = time.Now()
-	return s.db.Save(ent).Error
+	
+	// Use ON CONFLICT to handle race conditions atomically
+	// This ensures that concurrent requests don't cause UNIQUE constraint errors
+	return s.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"data", "updated_at"}),
+	}).Create(ent).Error
 }
 
 // Relation Operations

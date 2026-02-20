@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
 	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
 	"cortex/internal/models"
@@ -180,23 +183,41 @@ func (h *Handlers) HandleSetFact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ent, err := h.store.GetEntity(entity)
-	data := map[string]any{}
-	if err == nil && ent.Data != "" {
-		data = helpers.UnmarshalEntityData(ent.Data)
-	} else if err != nil && !helpers.IsNotFoundError(err) {
-		helpers.HandleInternalErrorSlog(w, "get entity error", "error", err, "entity", entity)
-		return
-	}
-
-	data[req.Key] = req.Value
-	ent = &models.Entity{
-		Name:      entity,
-		Data:      helpers.MarshalEntityData(data),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := h.store.CreateOrUpdateEntity(ent); err != nil {
+	// Use a transaction to prevent race conditions when updating entity facts
+	// SQLite handles transactions atomically, preventing concurrent modification issues
+	err := h.store.GetDB().Transaction(func(tx *gorm.DB) error {
+		var ent models.Entity
+		// Read existing entity (if any)
+		result := tx.Where("name = ?", entity).First(&ent)
+		
+		data := map[string]any{}
+		if result.Error == nil {
+			// Entity exists, unmarshal existing data
+			if ent.Data != "" {
+				data = helpers.UnmarshalEntityData(ent.Data)
+			}
+		} else if result.Error != gorm.ErrRecordNotFound {
+			// Unexpected error
+			return result.Error
+		}
+		
+		// Add or update the fact
+		data[req.Key] = req.Value
+		
+		// Update entity with new data
+		ent.Name = entity
+		ent.Data = helpers.MarshalEntityData(data)
+		ent.UpdatedAt = time.Now()
+		
+		// Use ON CONFLICT to handle concurrent inserts atomically
+		// If entity exists, update; if not, insert
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"data", "updated_at"}),
+		}).Create(&ent).Error
+	})
+	
+	if err != nil {
 		helpers.HandleInternalErrorSlog(w, "set fact error", "error", err, "entity", entity)
 		return
 	}
