@@ -48,9 +48,11 @@ func (h *spaFSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if f != nil {
 			defer f.Close()
 			if stat, _ := f.Stat(); stat != nil && !stat.IsDir() {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				http.ServeContent(w, r, "index.html", stat.ModTime(), f.(io.ReadSeeker))
-				return
+				if rs, ok := f.(io.ReadSeeker); ok {
+					w.Header().Set("Content-Type", "text/html; charset=utf-8")
+					http.ServeContent(w, r, "index.html", stat.ModTime(), rs)
+					return
+				}
 			}
 		}
 		http.NotFound(w, r)
@@ -62,7 +64,13 @@ func (h *spaFSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeContent(w, r, path, stat.ModTime(), f.(io.ReadSeeker))
+	rs, ok := f.(io.ReadSeeker)
+	if !ok {
+		slog.Error("dashboard: file does not implement ReadSeeker", "path", path)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	http.ServeContent(w, r, path, stat.ModTime(), rs)
 }
 
 func devProxy() http.Handler {
