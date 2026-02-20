@@ -42,6 +42,9 @@ Thumbs.db
 *.log
 debug.log
 
+# Build output (e.g. dashboard)
+dist/
+
 # Temporary files
 tmp/
 temp/
