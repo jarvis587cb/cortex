@@ -241,6 +241,9 @@ func UnmarshalMetadata(metadataJSON string) map[string]any {
 	if err := json.Unmarshal([]byte(metadataJSON), &metadata); err != nil {
 		return map[string]any{}
 	}
+	if metadata == nil {
+		return map[string]any{}
+	}
 	return metadata
 }
 
@@ -258,6 +261,9 @@ func UnmarshalEntityData(dataJSON string) map[string]any {
 	}
 	var data map[string]any
 	if err := json.Unmarshal([]byte(dataJSON), &data); err != nil {
+		return map[string]any{}
+	}
+	if data == nil {
 		return map[string]any{}
 	}
 	return data

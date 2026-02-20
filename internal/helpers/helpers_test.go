@@ -155,6 +155,28 @@ func TestMarshalUnmarshalEntityData(t *testing.T) {
 	}
 }
 
+// TestUnmarshalEntityDataNull verifies that JSON "null" returns a non-nil empty map (avoids panic in callers).
+func TestUnmarshalEntityDataNull(t *testing.T) {
+	result := UnmarshalEntityData("null")
+	if result == nil {
+		t.Fatal("UnmarshalEntityData(\"null\") returned nil; callers may panic on map assignment")
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty map, got len %d", len(result))
+	}
+}
+
+// TestUnmarshalMetadataNull verifies that JSON "null" returns a non-nil empty map.
+func TestUnmarshalMetadataNull(t *testing.T) {
+	result := UnmarshalMetadata("null")
+	if result == nil {
+		t.Fatal("UnmarshalMetadata(\"null\") returned nil")
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty map, got len %d", len(result))
+	}
+}
+
 func TestGetQueryParam(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test?param=value&empty=", nil)
 

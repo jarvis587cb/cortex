@@ -94,10 +94,17 @@ flowchart TB
 ## 7. Dokumentation (Überblick)
 
 - **Root:** [README.md](../README.md) – Quick Start, Features, Konfiguration, CLI, API, Embeddings, SDK, Skill, Makefile, Troubleshooting.
-- **docs/:** [README.md](README.md) – Index; u.a. [API.md](API.md), [TEST_REPORT.md](TEST_REPORT.md), Neutron-Vergleich, [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md), [PERFORMANCE.md](PERFORMANCE.md), [ANALYSE.md](ANALYSE.md) (diese Projektanalyse).
+- **docs/:** [README.md](README.md) – Index; u.a. [API.md](API.md), [TEST_REPORT.md](TEST_REPORT.md), Neutron-Vergleich, [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md), [PERFORMANCE.md](PERFORMANCE.md), [ANALYSE.md](ANALYSE.md) (diese Projektanalyse, inkl. behobene Bugs).
 
 ---
 
-## 8. Kurzfassung
+## 8. Behobene Bugs / Überprüfte Bereiche
+
+- **Behoben:** `UnmarshalEntityData` und `UnmarshalMetadata` gaben bei JSON-`"null"` (z. B. in der DB) `nil` zurück. Aufrufer wie `HandleSetFact` führten danach `data[req.Key] = req.Value` aus und erzeugten eine **Panic**. Beide Hilfsfunktionen liefern nun in diesem Fall ein leeres `map[string]any{}`. Siehe [internal/helpers/helpers.go](../internal/helpers/helpers.go) und Tests `TestUnmarshalEntityDataNull`, `TestUnmarshalMetadataNull`.
+- **Überprüft:** Tenant-Isolation bei Delete (Seeds, Bundles) ist korrekt; ID-Parsing und Pfad-Extraktion (z. B. `/seeds/123`) mit Tests; Race-Tests (`go test -race ./...`) laufen ohne Fehler.
+
+---
+
+## 9. Kurzfassung
 
 Cortex ist ein **Go-Backend** mit SQLite und GORM, **Neutron-kompatibler REST-API**, optionalen lokalen Embeddings (Hash oder GTE-Small), **React-Dashboard** (Vite), **TypeScript-SDK** und **OpenClaw-Skill** mit Recall/Capture-Hooks. Alles lokal betreibbar; Build/Start über Makefile, Docker oder systemd; ausführliche Doku im README und unter `docs/`.
