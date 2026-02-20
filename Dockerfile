@@ -10,8 +10,8 @@ RUN go mod download
 # Copy source code
 COPY . ./
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cortex ./cmd/cortex
+# Build server binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cortex-server ./cmd/cortex-server
 
 # Runtime stage
 FROM alpine:latest
@@ -21,7 +21,7 @@ RUN apk --no-cache add ca-certificates wget
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /build/cortex .
+COPY --from=builder /build/cortex-server .
 
 # Create directory for database
 RUN mkdir -p /data
@@ -29,5 +29,5 @@ RUN mkdir -p /data
 # Expose port
 EXPOSE 9123
 
-# Run the binary
-CMD ["./cortex"]
+# Run the server
+CMD ["./cortex-server"]

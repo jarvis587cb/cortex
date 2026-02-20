@@ -56,7 +56,7 @@ cmd_create() {
     log_info "Neuer API-Key (einmalig sichtbar – sicher aufbewahren):"
     echo "  ${key}"
     echo ""
-    log_info "Server starten mit: export ${VAR_NAME}=<key>; ./cortex"
+    log_info "Server starten mit: export ${VAR_NAME}=<key>; ./cortex-server"
     log_info "Client/Script: dieselbe Variable setzen oder in .env eintragen."
 }
 

@@ -1,8 +1,10 @@
-.PHONY: help build run test test-race test-coverage clean fmt vet lint docker-build docker-run docker-stop docker-up docker-down install deps
+.PHONY: help build build-server build-cli run test test-race test-coverage clean fmt vet lint docker-build docker-run docker-stop docker-up docker-down install install-server install-cli deps
 
 # Variablen
-BINARY_NAME=cortex
-CMD_PATH=./cmd/cortex
+BINARY_SERVER=cortex-server
+BINARY_CLI=cortex-cli
+CMD_SERVER=./cmd/cortex-server
+CMD_CLI=./cmd/cortex-cli
 DOCKER_IMAGE=cortex
 DOCKER_TAG=latest
 GO_VERSION=1.23
@@ -19,14 +21,21 @@ help: ## Zeigt diese Hilfe an
 	@echo "Verfügbare Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(NC) %s\n", $$1, $$2}'
 
-build: ## Baut die Binary
-	@echo "$(GREEN)Building $(BINARY_NAME)...$(NC)"
-	@go build -o $(BINARY_NAME) $(CMD_PATH)
-	@echo "$(GREEN)✓ Build erfolgreich$(NC)"
+build: build-server build-cli ## Baut beide Binaries (cortex-server, cortex-cli)
+
+build-server: ## Baut cortex-server
+	@echo "$(GREEN)Building $(BINARY_SERVER)...$(NC)"
+	@go build -o $(BINARY_SERVER) $(CMD_SERVER)
+	@echo "$(GREEN)✓ $(BINARY_SERVER) gebaut$(NC)"
+
+build-cli: ## Baut cortex-cli
+	@echo "$(GREEN)Building $(BINARY_CLI)...$(NC)"
+	@go build -o $(BINARY_CLI) $(CMD_CLI)
+	@echo "$(GREEN)✓ $(BINARY_CLI) gebaut$(NC)"
 
 run: ## Startet den Server
 	@echo "$(GREEN)Starting Cortex server...$(NC)"
-	@go run $(CMD_PATH)
+	@go run $(CMD_SERVER)
 
 test: ## Führt alle Tests aus
 	@echo "$(GREEN)Running tests...$(NC)"
@@ -49,7 +58,7 @@ test-benchmark: ## Führt Benchmark-Tests aus
 
 clean: ## Entfernt Build-Artefakte
 	@echo "$(GREEN)Cleaning...$(NC)"
-	@rm -f $(BINARY_NAME)
+	@rm -f cortex $(BINARY_SERVER) $(BINARY_CLI)
 	@rm -f coverage.out coverage.html
 	@rm -f *.test
 	@echo "$(GREEN)✓ Clean abgeschlossen$(NC)"
@@ -83,10 +92,20 @@ deps-verify: ## Verifiziert Dependencies
 	@go mod verify
 	@echo "$(GREEN)✓ Dependencies verifiziert$(NC)"
 
-install: build ## Installiert die Binary (kopiert nach /usr/local/bin)
-	@echo "$(GREEN)Installing $(BINARY_NAME)...$(NC)"
-	@sudo cp $(BINARY_NAME) /usr/local/bin/
-	@echo "$(GREEN)✓ $(BINARY_NAME) installiert$(NC)"
+install: build ## Installiert beide Binaries nach /usr/local/bin
+	@echo "$(GREEN)Installing $(BINARY_SERVER) und $(BINARY_CLI)...$(NC)"
+	@sudo cp $(BINARY_SERVER) $(BINARY_CLI) /usr/local/bin/
+	@echo "$(GREEN)✓ $(BINARY_SERVER) und $(BINARY_CLI) installiert$(NC)"
+
+install-server: build-server ## Installiert nur cortex-server
+	@echo "$(GREEN)Installing $(BINARY_SERVER)...$(NC)"
+	@sudo cp $(BINARY_SERVER) /usr/local/bin/
+	@echo "$(GREEN)✓ $(BINARY_SERVER) installiert$(NC)"
+
+install-cli: build-cli ## Installiert nur cortex-cli
+	@echo "$(GREEN)Installing $(BINARY_CLI)...$(NC)"
+	@sudo cp $(BINARY_CLI) /usr/local/bin/
+	@echo "$(GREEN)✓ $(BINARY_CLI) installiert$(NC)"
 
 # Docker Targets
 docker-build: ## Baut Docker-Image
@@ -134,7 +153,7 @@ benchmark: ## Führt Performance-Benchmark aus (benötigt laufenden Server)
 # Development Targets
 dev: ## Startet Server im Development-Modus (mit Auto-Reload)
 	@echo "$(GREEN)Starting development server...$(NC)"
-	@which air > /dev/null || (echo "$(YELLOW)air nicht installiert. Installiere mit: go install github.com/cosmtrek/air@latest$(NC)" && go run $(CMD_PATH))
+	@which air > /dev/null || (echo "$(YELLOW)air nicht installiert. Installiere mit: go install github.com/cosmtrek/air@latest$(NC)" && go run $(CMD_SERVER))
 	@air
 
 check: fmt-check vet test ## Führt alle Checks aus (Format, Vet, Tests)

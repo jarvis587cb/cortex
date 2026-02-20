@@ -24,15 +24,20 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 Cortex besteht aus folgenden Komponenten:
 
-### 1. Go-Server (`cortex`)
+### 1. Go-Binaries
 
-**Backend-Service** mit SQLite-Datenbank und HTTP-API:
+Es werden zwei Binaries gebaut:
+
+- **cortex-server** – Backend-Service mit SQLite-Datenbank und HTTP-API (`cmd/cortex-server`)
+- **cortex-cli** – CLI-Client für die API (health, store, query, delete, stats), keine jq/curl-Abhängigkeit (`cmd/cortex-cli`)
+
+**Server (cortex-server):**
 
 - **Datenbank**: SQLite (`~/.openclaw/cortex.db` oder über `CORTEX_DB_PATH`)
 - **Port**: 9123 (Standard) oder über `CORTEX_PORT`
 - **Technologie**: Go 1.23+, GORM, `github.com/glebarez/sqlite` (pure-Go)
 - **Code-Struktur**: 
-  - `cmd/cortex/main.go` – Server-Start und Routing
+  - `cmd/cortex-server/main.go` – Server-Start und Routing
   - `internal/models/` – Datenmodelle
   - `internal/store/` – Datenbank-Operationen
   - `internal/api/` – HTTP-Handler
@@ -80,7 +85,8 @@ API-Keys anlegen/entfernen: `./scripts/api-key.sh create` bzw. `delete` (siehe [
 # Ins Cortex-Projektverzeichnis wechseln
 cd /path/to/cortex   # bzw. z. B. cd ~/.openclaw/workspace/projects/cortex
 go mod tidy
-go run ./...
+make run
+# bzw. go run ./cmd/cortex-server
 ```
 
 **Umgebungsvariablen** (optional):
@@ -101,7 +107,18 @@ curl http://localhost:9123/health
 
 ### CLI-Tool verwenden
 
-Das `cortex-cli.sh` Script bietet eine einfache CLI für alle API-Operationen:
+**Go-Binary (empfohlen):** Nach `make build` steht `./cortex-cli` zur Verfügung (keine Abhängigkeit von jq/curl):
+
+```bash
+./cortex-cli health
+./cortex-cli store "Der Nutzer mag Kaffee"
+./cortex-cli query "Kaffee" 10
+./cortex-cli delete 1
+./cortex-cli stats
+./cortex-cli help
+```
+
+**Bash-Script (Alternative):** `./scripts/cortex-cli.sh` bietet die gleichen Befehle und ist nützlich, wenn keine Go-Binary gebaut werden soll:
 
 ```bash
 # Health Check
@@ -797,12 +814,20 @@ level=ERROR msg="remember insert error" error="..."
 
 ### Build
 
-```bash
-# Go-Binary bauen
-go build -o cortex ./cmd/cortex
+Es werden zwei Binaries gebaut: **cortex-server** (HTTP-Server) und **cortex-cli** (CLI-Client).
 
-# Oder direkt ausführen
-go run ./cmd/cortex
+```bash
+# Beide Binaries bauen
+make build
+# bzw. make build-server und make build-cli einzeln
+
+# Server starten
+make run
+# bzw. ./cortex-server oder go run ./cmd/cortex-server
+
+# CLI verwenden (nach make build)
+./cortex-cli health
+./cortex-cli store "Inhalt"
 
 # Tests ausführen
 go test ./...
@@ -823,7 +848,7 @@ make docker-up
 # bzw. docker compose up -d
 ```
 
-**Hinweis:** Wenn Port 9123 bereits belegt ist (z. B. durch einen lokal laufenden Cortex), zuerst den Prozess beenden (`pkill -f cortex`) oder in `docker-compose.yml` einen anderen Host-Port verwenden (z. B. `"9124:9123"`).
+**Hinweis:** Wenn Port 9123 bereits belegt ist (z. B. durch einen lokal laufenden Server), zuerst den Prozess beenden (`pkill -f cortex-server`) oder in `docker-compose.yml` einen anderen Host-Port verwenden (z. B. `"9124:9123"`).
 
 ### Scripts verwenden
 

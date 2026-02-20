@@ -36,9 +36,9 @@ Verwaltet `CORTEX_API_KEY` in einer `.env`-Datei (Server oder Client).
 
 Ohne `env_file` wird die `.env` im Projektroot oder im aktuellen Verzeichnis verwendet. Der Key hat das Format `ck_` + 64 Hex-Zeichen. Nach `create` Server neu starten bzw. Variable exportieren.
 
-### `cortex-cli.sh` – CLI-Tool
+### `cortex-cli.sh` – CLI-Tool (Bash)
 
-Bash-CLI für die Cortex-API.
+Bash-CLI für die Cortex-API. **Alternative:** Die Go-Binary `cortex-cli` (nach `make build` als `./cortex-cli` verfügbar) bietet die gleichen Befehle ohne Abhängigkeit von jq/curl; siehe Haupt-[README](../README.md).
 
 **Verwendung:**
 ```bash
