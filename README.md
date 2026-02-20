@@ -176,8 +176,17 @@ Das CLI-Tool bietet alle Funktionen ohne externe Abhängigkeiten:
 # Memory speichern
 ./cortex-cli store "Text" '[{"type":"fact"}]'
 
+# Memory mit Metadata-Typen speichern
+./cortex-cli store "Carsten bevorzugt dunkles Theme" '{"typ":"persönlich","kategorie":"präferenz"}'
+./cortex-cli store "Gateway restart um 14:30" '{"typ":"system","kategorie":"gateway"}'
+./cortex-cli store "docker-compose up -d" '{"typ":"bash","kategorie":"docker"}'
+
 # Semantische Suche
 ./cortex-cli query "Suchbegriff" 10 0.5
+
+# Semantische Suche mit Metadata-Filter
+./cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
+./cortex-cli query "Gateway" 10 0.5 "" '{"typ":"system"}'
 
 # Memory löschen
 ./cortex-cli delete <id>
@@ -185,6 +194,12 @@ Das CLI-Tool bietet alle Funktionen ohne externe Abhängigkeiten:
 # Statistiken
 ./cortex-cli stats
 ```
+
+**Metadata-Typen:**
+- `persönlich`: Präferenzen, persönliche Informationen
+- `system`: Gateway-Checks, Cron-Logs, System-Events
+- `bash`: Wichtige Commands aus Bash-History
+- `decision`: Wichtige Entscheidungen
 
 ### Entities (Key-Value Fakten)
 

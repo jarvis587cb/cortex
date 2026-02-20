@@ -116,7 +116,7 @@ Verwendung:
 Befehle:
   health                    - Prüft API-Status
   store <content> [metadata] - Speichert ein Memory (metadata optional JSON)
-  query <text> [limit] [threshold] [seedIds] - Suche (limit=5, threshold=0.2, seedIds z.B. 1,2,3)
+  query <text> [limit] [threshold] [seedIds] [metadataFilter] - Suche (limit=5, threshold=0.2, seedIds z.B. 1,2,3, metadataFilter z.B. '{"typ":"persönlich"}')
   delete <id>                - Löscht ein Memory
   stats                     - Zeigt Statistiken
   entity-add <entity> <key> <value> - Fact zu einer Entity hinzufügen
@@ -148,6 +148,7 @@ Beispiele:
   %s store "Der Nutzer mag Kaffee"
   %s query "Kaffee" 10 0.2
   %s query "Kaffee" 10 0.5 "1,2,3"
+  %s query "Kaffee" 10 0.5 "" '{"typ":"persönlich"}'
   %s delete 1
   %s stats
   %s entity-add carsten lieblingsfarbe blau
@@ -162,7 +163,7 @@ Beispiele:
   %s benchmark-embeddings 100 local
   %s api-key create
   %s api-key show
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {
@@ -279,12 +280,13 @@ func parseSeedIDs(s string) ([]int64, error) {
 
 func cmdQuery(client *cliClient, args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("Verwendung: query <text> [limit] [threshold] [seedIds]")
+		return fmt.Errorf("Verwendung: query <text> [limit] [threshold] [seedIds] [metadataFilter]")
 	}
 	query := args[0]
 	limit := 5
 	threshold := 0.2
 	var seedIDs []int64
+	var metadataFilter map[string]any
 	if len(args) >= 2 {
 		var err error
 		limit, err = strconv.Atoi(args[1])
@@ -299,11 +301,16 @@ func cmdQuery(client *cliClient, args []string) error {
 			return fmt.Errorf("threshold muss eine Zahl zwischen 0 und 1 sein")
 		}
 	}
-	if len(args) >= 4 {
+	if len(args) >= 4 && args[3] != "" {
 		var err error
 		seedIDs, err = parseSeedIDs(args[3])
 		if err != nil {
 			return err
+		}
+	}
+	if len(args) >= 5 && args[4] != "" {
+		if err := json.Unmarshal([]byte(args[4]), &metadataFilter); err != nil {
+			return fmt.Errorf("metadataFilter muss gültiges JSON sein: %w", err)
 		}
 	}
 
@@ -316,6 +323,9 @@ func cmdQuery(client *cliClient, args []string) error {
 	}
 	if len(seedIDs) > 0 {
 		body["seedIds"] = seedIDs
+	}
+	if len(metadataFilter) > 0 {
+		body["metadataFilter"] = metadataFilter
 	}
 	data, code, err := client.do(http.MethodPost, "/seeds/query", body)
 	if err != nil {

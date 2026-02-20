@@ -165,11 +165,12 @@ type StoreSeedResponse struct {
 
 type QuerySeedRequest struct {
 	TenantRequest
-	Query     string  `json:"query"`
-	Limit     int     `json:"limit,omitempty"`
-	BundleID  *int64  `json:"bundleId,omitempty"`
-	Threshold float64 `json:"threshold,omitempty"` // 0-1, default 0; only return results with similarity >= threshold
-	SeedIDs   []int64 `json:"seedIds,omitempty"`   // optional: limit search to these memory IDs
+	Query         string         `json:"query"`
+	Limit         int            `json:"limit,omitempty"`
+	BundleID      *int64         `json:"bundleId,omitempty"`
+	Threshold     float64        `json:"threshold,omitempty"` // 0-1, default 0; only return results with similarity >= threshold
+	SeedIDs       []int64        `json:"seedIds,omitempty"`   // optional: limit search to these memory IDs
+	MetadataFilter map[string]any `json:"metadataFilter,omitempty"` // optional: filter by metadata fields (e.g., {"typ": "persönlich", "kategorie": "präferenz"})
 }
 
 type QuerySeedResult struct {

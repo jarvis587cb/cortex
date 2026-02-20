@@ -37,7 +37,10 @@ cortex-cli health                              # Health check
 
 # Memories
 cortex-cli store "Text" '[{"type":"fact"}]'  # Speichern
+cortex-cli store "Carsten bevorzugt dunkles Theme" '{"typ":"persönlich","kategorie":"präferenz"}'  # Mit Metadata-Typ
+cortex-cli store "Gateway restart um 14:30" '{"typ":"system","kategorie":"gateway"}'  # System-Event
 cortex-cli query "Suchbegriff" 10              # Semantische Suche
+cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'  # Suche mit Metadata-Filter
 cortex-cli delete <id>                        # Löschen
 cortex-cli stats                              # Stats
 
@@ -81,6 +84,48 @@ cortex-cli api-key delete
 
 # Embeddings für bestehende Memories generieren
 cortex-cli generate-embeddings 50
+```
+
+## Metadata-Typen und Kategorien
+
+Cortex unterstützt strukturierte Metadata-Typen, um Memories zu kategorisieren und zu filtern:
+
+### Verfügbare Typen
+
+- **`persönlich`**: Präferenzen, persönliche Informationen
+  ```bash
+  cortex-cli store "Carsten bevorzugt dunkles Theme" '{"typ":"persönlich","kategorie":"präferenz"}'
+  ```
+
+- **`system`**: Gateway-Checks, Cron-Logs, System-Events
+  ```bash
+  cortex-cli store "Gateway restart um 14:30" '{"typ":"system","kategorie":"gateway"}'
+  ```
+
+- **`bash`**: Wichtige Commands aus Bash-History
+  ```bash
+  cortex-cli store "docker-compose up -d" '{"typ":"bash","kategorie":"docker"}'
+  ```
+
+- **`decision`**: Wichtige Entscheidungen
+  ```bash
+  cortex-cli store "Migration zu PostgreSQL beschlossen" '{"typ":"decision","kategorie":"architektur"}'
+  ```
+
+### Suche mit Metadata-Filter
+
+```bash
+# Nur persönliche Memories suchen
+cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
+
+# Nur System-Events suchen
+cortex-cli query "Gateway" 10 0.5 "" '{"typ":"system"}'
+
+# Nach Kategorie filtern
+cortex-cli query "Docker" 10 0.5 "" '{"kategorie":"docker"}'
+
+# Kombination von Filtern
+cortex-cli query "Restart" 10 0.5 "" '{"typ":"system","kategorie":"gateway"}'
 ```
 
 ## Embeddings & Semantische Suche

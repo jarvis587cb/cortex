@@ -96,6 +96,18 @@ func (s *CortexStore) applyOptionalFilters(dbQuery *gorm.DB, filters map[string]
 	if seedIDs, ok := filters["seedIDs"].([]int64); ok && len(seedIDs) > 0 {
 		dbQuery = dbQuery.Where("id IN ?", seedIDs)
 	}
+	// Metadata filter: filter by JSON fields in metadata column using SQLite JSON1 extension
+	if metadataFilter, ok := filters["metadataFilter"].(map[string]any); ok && len(metadataFilter) > 0 {
+		for key, value := range metadataFilter {
+			// Use json_extract to query JSON fields in SQLite
+			// Handle both string and other types
+			if strValue, isString := value.(string); isString {
+				dbQuery = dbQuery.Where("json_extract(metadata, ?) = ?", "$."+key, strValue)
+			} else {
+				dbQuery = dbQuery.Where("json_extract(metadata, ?) = ?", "$."+key, value)
+			}
+		}
+	}
 	return dbQuery
 }
 
@@ -124,14 +136,15 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 	return memories, err
 }
 
-func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 
 	filters := map[string]interface{}{
-		"query":    query,
-		"bundleID": bundleID,
-		"seedIDs":  seedIDs,
+		"query":          query,
+		"bundleID":       bundleID,
+		"seedIDs":        seedIDs,
+		"metadataFilter": metadataFilter,
 	}
 	dbQuery = s.applyOptionalFilters(dbQuery, filters)
 
@@ -140,21 +153,21 @@ func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, que
 }
 
 // SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
-func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any) ([]models.Memory, error) {
 	// Generiere Embedding für Query
 	embeddingService := embeddings.GetEmbeddingService()
 	queryEmbedding, err := embeddingService.GenerateEmbedding(query, "text/plain")
 	if err != nil {
 		// Fallback zu Textsuche bei Fehler
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter)
 	}
 
 	if queryEmbedding == nil {
 		// Fallback zu Textsuche wenn kein Embedding generiert werden konnte
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter)
 	}
 
-	// Hole alle Memories für diesen Tenant (und optional Bundle, optional seedIDs)
+	// Hole alle Memories für diesen Tenant (und optional Bundle, optional seedIDs, optional metadataFilter)
 	var allMemories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
 	if bundleID != nil {
@@ -162,6 +175,13 @@ func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUse
 	}
 	if len(seedIDs) > 0 {
 		dbQuery = dbQuery.Where("id IN ?", seedIDs)
+	}
+	// Apply metadata filter if provided
+	if len(metadataFilter) > 0 {
+		filters := map[string]interface{}{
+			"metadataFilter": metadataFilter,
+		}
+		dbQuery = s.applyOptionalFilters(dbQuery, filters)
 	}
 	err = dbQuery.Find(&allMemories).Error
 	if err != nil {

@@ -365,11 +365,17 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 		seedIDs = []int64{}
 	}
 
+	// Optional: metadata filter
+	metadataFilter := req.MetadataFilter
+	if metadataFilter == nil {
+		metadataFilter = map[string]any{}
+	}
+
 	// Versuche semantische Suche, fallback zu Textsuche (bei Fehler oder 0 Treffern)
-	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
+	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
 	if err != nil || len(memories) == 0 {
 		// Fallback zu Textsuche (z. B. wenn noch keine Embeddings vorhanden oder semantisch nichts gefunden)
-		textMemories, textErr := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
+		textMemories, textErr := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
 		if textErr != nil {
 			if err != nil {
 				helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
@@ -430,7 +436,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 
 	// Wenn nach Threshold 0 Treffer: Textsuche ergänzen (z. B. "oat milk" findet "oat milk lattes")
 	if len(results) == 0 && req.Query != "" {
-		textMemories, _ := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs)
+		textMemories, _ := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
 		for _, mem := range textMemories {
 			metadata := helpers.UnmarshalMetadata(mem.Metadata)
 			sim := helpers.DefaultSimilarity
