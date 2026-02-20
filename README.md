@@ -50,7 +50,7 @@ Es werden zwei Binaries gebaut:
 **Bash-Scripts** für CLI, Tests und Benchmarks:
 
 - `cortex-cli.sh` – CLI-Tool für alle API-Operationen
-- `cortex-memory.sh` – Neutron-kompatibles Script (save, search, context-*), siehe [skills/cortex/SKILL.md](skills/cortex/SKILL.md)
+- `cortex-memory.sh` – Script für Hooks (recall/capture); sonst siehe `cortex-cli` und [skills/cortex/SKILL.md](skills/cortex/SKILL.md)
 - `api-key.sh` – API-Key anlegen/löschen (CORTEX_API_KEY in .env)
 - `benchmark.sh` – Performance-Benchmarks
 - `test-e2e.sh` – End-to-End-Tests

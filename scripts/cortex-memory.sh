@@ -1,19 +1,18 @@
 #!/bin/bash
-# Cortex Memory Script - Neutron-compatible interface for OpenClaw
+# Cortex Memory Script - für Hooks (recall/capture) und Script-Nutzung
 # Usage: ./scripts/cortex-memory.sh <command> [args...]
-# Commands: test, save, search, context-create, context-list, context-get
+# Commands: test, save, search, recall, capture, context-create, context-list, context-get
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
-# Config: Cortex URL and tenant (OpenClaw can use NEUTRON_AGENT_ID / YOUR_AGENT_IDENTIFIER or Cortex vars)
-API_URL="${CORTEX_API_URL:-${NEUTRON_API_URL:-http://localhost:9123}}"
-APP_ID="${CORTEX_APP_ID:-${NEUTRON_AGENT_ID:-openclaw}}"
-USER_ID="${CORTEX_USER_ID:-${YOUR_AGENT_IDENTIFIER:-default}}"
-# API Key (optional): wenn gesetzt, wird Authorization: Bearer $API_KEY bei allen Requests gesendet (Neutron-kompatibel)
-API_KEY="${CORTEX_API_KEY:-${NEUTRON_API_KEY:-}}"
+# Config: Cortex URL and tenant
+API_URL="${CORTEX_API_URL:-http://localhost:9123}"
+APP_ID="${CORTEX_APP_ID:-openclaw}"
+USER_ID="${CORTEX_USER_ID:-default}"
+API_KEY="${CORTEX_API_KEY:-}"
 CURL_AUTH=()
 [ -n "$API_KEY" ] && CURL_AUTH=(-H "Authorization: Bearer ${API_KEY}")
 
@@ -22,7 +21,7 @@ info() { log_info "$1"; }
 success() { log_success "$1"; }
 error() { die "$1"; }
 
-# test - Verify installation and credentials (like neutron-memory.sh test)
+# test - Verify Cortex connection
 cmd_test() {
     log_info "Testing Cortex connection..."
     local response body http_code
@@ -37,7 +36,7 @@ cmd_test() {
     fi
 }
 
-# save - Save a memory (like neutron-memory.sh save "content" "metadata/tag")
+# save - Save a memory
 cmd_save() {
     local content="${1:-}"
     local metadata="${2:-{}}"
@@ -69,7 +68,7 @@ cmd_save() {
     fi
 }
 
-# search - Semantic search (like neutron-memory.sh search "query" [limit] [threshold] [seedIds])
+# search - Semantic search
 # seedIds: optional, comma-separated list of seed IDs to limit search (e.g. "1,2,3")
 # Wenn nur 3 Argumente und das 3. enthält ein Komma: als seedIds interpretieren (Default-Threshold)
 cmd_search() {
@@ -212,12 +211,12 @@ case "${1:-}" in
     context-get)    shift; cmd_context_get "$@" ;;
     help|--help|-h)
         cat <<EOF
-Cortex Memory Script (Neutron-compatible)
+Cortex Memory Script
 
 Usage: $0 <command> [args...]
 
 Commands:
-  test                    Verify Cortex connection (like neutron-memory.sh test)
+  test                    Verify Cortex connection
   save "content" [meta]   Save a memory (metadata optional JSON)
   search "query" [limit] [threshold] [seedIds]   Semantic search (seedIds optional, comma-separated)
   recall [query] [limit] [threshold]   Hook: recall context before interaction (honours VANAR_AUTO_RECALL)
@@ -227,8 +226,8 @@ Commands:
   context-get <id>        Get one agent context by ID
 
 Environment:
-  CORTEX_API_URL, CORTEX_APP_ID, CORTEX_USER_ID  (or NEUTRON_* / YOUR_AGENT_IDENTIFIER)
-  CORTEX_API_KEY      optional - when set, sends Authorization: Bearer <key> (or NEUTRON_API_KEY)
+  CORTEX_API_URL, CORTEX_APP_ID, CORTEX_USER_ID
+  CORTEX_API_KEY      optional - when set, sends Authorization: Bearer <key>
   VANAR_AUTO_RECALL   true|false (default: true) - run recall hook
   VANAR_AUTO_CAPTURE  true|false (default: true) - run capture hook
 EOF

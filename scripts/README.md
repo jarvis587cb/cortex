@@ -4,25 +4,32 @@ Hilfsscripts für die Cortex Memory API.
 
 ## Scripts
 
-### `cortex-memory.sh` – Neutron-kompatibles Script (OpenClaw-Guide)
+### `cortex-cli` – CLI (Go-Binary, empfohlen)
 
-Gleiche Befehle wie im [OpenClaw Integration Guide](https://openclaw.vanarchain.com/guide-openclaw) (Neutron): `test`, `save`, `search`, **`recall`**, **`capture`** (Hooks), `context-create`, `context-list`, `context-get`. Nutzt Cortex-API (kein API-Key).
+Nach `make build`: alle Befehle ohne jq/curl.
 
-**Verwendung:**
 ```bash
-./scripts/cortex-memory.sh test
-./scripts/cortex-memory.sh save "content" "[metadata_json]"
-./scripts/cortex-memory.sh search "query" [limit] [threshold] [seedIds]
-./scripts/cortex-memory.sh recall "[query]" [limit] [threshold]   # Hook: vor Interaktion (VANAR_AUTO_RECALL)
-./scripts/cortex-memory.sh capture "content" [metadata_json]      # Hook: nach Austausch (VANAR_AUTO_CAPTURE)
-./scripts/cortex-memory.sh context-create "agentId" [memoryType] [payload_json]
-./scripts/cortex-memory.sh context-list [agentId]
-./scripts/cortex-memory.sh context-get <id>
+./cortex-cli health
+./cortex-cli store "content" "[metadata_json]"
+./cortex-cli query "query" [limit] [threshold] [seedIds]
+./cortex-cli delete <id>
+./cortex-cli stats
+./cortex-cli context-create "agentId" [memoryType] [payload]
+./cortex-cli context-list [agentId]
+./cortex-cli context-get <id>
+./cortex-cli generate-embeddings [batchSize]
+./cortex-cli help
 ```
 
-**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` (oder `NEUTRON_*`); optional `CORTEX_API_KEY`; für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`.
 
-Siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md) für Details und **hooks.sh** (`skills/cortex/hooks.sh`, Einstiegspunkt für OpenClaw).
+### `cortex-memory.sh` – Script (Hooks: recall/capture)
+
+Für **Hooks** (Auto-Recall/Auto-Capture) z. B. mit OpenClaw: `skills/cortex/hooks.sh recall` / `capture` (ruft dieses Script auf). Eigenständig: `test`, `save`, `search`, `recall`, `capture`, `context-create`, `context-list`, `context-get`.
+
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`; für Hooks: `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` (default: true).
+
+Siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md).
 
 ### `api-key.sh` – API-Key anlegen / löschen
 

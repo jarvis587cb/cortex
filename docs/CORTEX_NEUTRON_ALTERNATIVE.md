@@ -540,22 +540,22 @@ Der offizielle Guide beschreibt die Integration von Neutron in OpenClaw: ClawHub
 | Aspekt | OpenClaw-Guide (Neutron) | Cortex |
 |--------|---------------------------|--------|
 | **Installation** | `clawhub install vanar-neutron-memory` → Skill in `./skills/vanar-neutron-memory/` | Server + OpenClaw: ein Skill `skills/cortex/` (install.sh, setup.sh, hooks.sh) |
-| **Credentials** | `.env`: `NEUTRON_API_KEY`, `NEUTRON_AGENT_ID`, `YOUR_AGENT_IDENTIFIER` | Kein API-Key; Server: `CORTEX_PORT`, `CORTEX_DB_PATH`; Client: `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID` |
-| **Test** | `./scripts/neutron-memory.sh test` | `./cortex-cli health` oder `./scripts/cortex-cli.sh health`; optional: `scripts/cortex-memory.sh test` (siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md)) |
+| **Credentials** | Neutron: API-Key, Agent-ID, User-ID | Cortex: `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY` |
+| **Test** | `./scripts/neutron-memory.sh test` | `./cortex-cli health` (siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md)) |
 
 ### Hooks (Auto-Recall / Auto-Capture)
 
 | Aspekt | Guide (Neutron) | Cortex |
 |--------|------------------|--------|
-| **Auto-Recall** | Vor jeder AI-Interaktion; `VANAR_AUTO_RECALL` | Implementiert: `cortex-memory.sh recall` + `skills/cortex/hooks.sh recall`; Env `VANAR_AUTO_RECALL` (default: true) |
-| **Auto-Capture** | Nach jedem Austausch; `VANAR_AUTO_CAPTURE` | Implementiert: `cortex-memory.sh capture` + `skills/cortex/hooks.sh capture`; Env `VANAR_AUTO_CAPTURE` (default: true) |
+| **Auto-Recall** | Vor jeder AI-Interaktion; `VANAR_AUTO_RECALL` | `skills/cortex/hooks.sh recall`; Env `VANAR_AUTO_RECALL` (default: true) |
+| **Auto-Capture** | Nach jedem Austausch; `VANAR_AUTO_CAPTURE` | `skills/cortex/hooks.sh capture`; Env `VANAR_AUTO_CAPTURE` (default: true) |
 
 ### Seeds (Memory Storage & Search)
 
 | Aspekt | Guide (Neutron) | Cortex |
 |--------|------------------|--------|
-| **Save** | `neutron-memory.sh save "content" "tag"`; Typen/Source | `cortex-cli.sh store "content" [metadata]`; POST /seeds mit `content`, `metadata`, `bundleId`; Typ/Source über `metadata` |
-| **Search** | `search "query" [limit] [threshold]`; optional seedIds | `cortex-cli.sh query "text" [limit]`; POST /seeds/query mit `query`, `limit`, `bundleId`, `threshold`, `seedIds` (siehe Query-Erweiterung) |
+| **Save** | `neutron-memory.sh save "content" "tag"` | `cortex-cli store "content" [metadata]`; POST /seeds |
+| **Search** | `search "query" [limit] [threshold]`; optional seedIds | `cortex-cli query "text" [limit] [threshold] [seedIds]`; POST /seeds/query |
 | **API** | POST /seeds, POST /seeds/query | POST /seeds, POST /seeds/query, DELETE /seeds/:id, POST /seeds/generate-embeddings |
 
 ### Agent Contexts (Session Persistence)
@@ -563,11 +563,11 @@ Der offizielle Guide beschreibt die Integration von Neutron in OpenClaw: ClawHub
 | Aspekt | Guide (Neutron) | Cortex |
 |--------|------------------|--------|
 | **Konzept** | Session-State, Konversationsverlauf zwischen Sessions | Implementiert: POST /agent-contexts, GET /agent-contexts, GET /agent-contexts/:id (episodic/semantic/procedural/working) |
-| **Create/List/Get** | `context-create`, `context-list`, `context-get` | API + Script `cortex-memory.sh context-create/list/get` (siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md)) |
+| **Create/List/Get** | `context-create`, `context-list`, `context-get` | `cortex-cli context-create`, `context-list`, `context-get` (siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md)) |
 
 ### Lücken und Abdeckung
 
-- **Abgedeckt:** Seeds-API (Speichern, semantische Suche, Multi-Tenant, Bundles), Query mit limit/bundleId/threshold/seedIds, Agent Contexts-API, lokale Embeddings, Scripts `cortex-cli`/`cortex-cli.sh` und `cortex-memory.sh`, ein Skill „cortex“ mit Hooks (`skills/cortex/hooks.sh`) und vollständiger Doku.
+- **Abgedeckt:** Seeds-API (Speichern, semantische Suche, Multi-Tenant, Bundles), Query mit limit/bundleId/threshold/seedIds, Agent Contexts-API, lokale Embeddings, CLI `cortex-cli` (alle Befehle), Skill „cortex“ mit Hooks (`skills/cortex/hooks.sh`), optional `cortex-memory.sh` für Hooks.
 - **Unterschiede:** Cortex benötigt keinen API-Key; Installation über einen Projekt-Skill `skills/cortex/` statt ClawHub; Hooks über `skills/cortex/hooks.sh`.
 
 ## Fazit
