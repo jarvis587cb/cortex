@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -333,6 +334,30 @@ func (h *Handlers) HandleStoreSeed(w http.ResponseWriter, r *http.Request) {
 	go h.triggerWebhook(webhooks.EventMemoryCreated, h.buildMemoryWebhookPayload(mem, appID, externalUserID, webhooks.EventMemoryCreated))
 
 	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(mem.ID, "Memory stored successfully"))
+}
+
+// HandleListSeeds returns a paginated list of memories for the tenant (GET /seeds).
+func (h *Handlers) HandleListSeeds(w http.ResponseWriter, r *http.Request) {
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if appID == "" || externalUserID == "" {
+		http.Error(w, "missing required query parameter: appId and externalUserId", http.StatusBadRequest)
+		return
+	}
+	limit := helpers.ParseLimit(helpers.GetQueryParam(r, "limit"), 50, 100)
+	offset := 0
+	if s := helpers.GetQueryParam(r, "offset"); s != "" {
+		if o, err := strconv.Atoi(s); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+	memories, err := h.store.ListMemoriesByTenant(appID, externalUserID, limit, offset)
+	if err != nil {
+		helpers.HandleInternalErrorSlog(w, "list seeds error", "error", err, "appId", appID, "userId", externalUserID)
+		return
+	}
+	h.mapMetadataToMemories(memories)
+	helpers.WriteJSON(w, http.StatusOK, memories)
 }
 
 func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {

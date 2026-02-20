@@ -6,12 +6,21 @@ help: ## Zeigt diese Hilfe an
 	@echo "Verfügbare Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-build: ## Baut beide Binaries (cortex-server, cortex-cli)
+build: ## Baut beide Binaries (cortex-server, cortex-cli). Für Dashboard im Binary: zuerst make build-dashboard
 	go build -o cortex-server ./cmd/cortex-server && \
 	go build -o cortex-cli ./cmd/cortex-cli
 
-run: ## Startet den Server
+build-dashboard: ## Baut das React-Dashboard nach internal/dashboard/dist (für Embed). Danach make build für Server mit Dashboard.
+	@cd dashboard && npm ci && npm run build
+
+run: ## Startet den Server (mit eingebettetem Dashboard unter /dashboard/)
 	go run ./cmd/cortex-server
+
+dev: ## Dev: Vite (Dashboard) und Cortex-Server parallel. Dashboard unter /dashboard/ proxied zu Vite (HMR). CORTEX_ENV=dev
+	@echo "Starte Vite (Dashboard) und Cortex-Server mit CORTEX_ENV=dev..."
+	@cd dashboard && npm run dev & \
+	CORTEX_ENV=dev go run ./cmd/cortex-server; \
+	fg 2>/dev/null || true
 
 test: ## Führt alle Tests aus
 	go test -v ./...

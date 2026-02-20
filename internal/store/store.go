@@ -136,6 +136,34 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 	return memories, err
 }
 
+// ListMemoriesByTenant returns memories for a tenant with pagination (for dashboard/admin).
+// Does not populate Embedding in results; use for list views only.
+func (s *CortexStore) ListMemoriesByTenant(appID, externalUserID string, limit, offset int) ([]models.Memory, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var memories []models.Memory
+	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&memories).Error
+	if err != nil {
+		return nil, err
+	}
+	// Clear embedding for list response (not needed, reduces payload)
+	for i := range memories {
+		memories[i].Embedding = ""
+	}
+	return memories, nil
+}
+
 func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)

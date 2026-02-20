@@ -260,6 +260,20 @@ Das CLI-Tool bietet alle Funktionen ohne externe Abhängigkeiten:
 - `CORTEX_APP_ID` – App-ID für Multi-Tenant (Standard: `openclaw`)
 - `CORTEX_USER_ID` – User-ID für Multi-Tenant (Standard: `default`)
 
+## Dashboard
+
+Der cortex-server liefert ein eingebettetes **React-Dashboard** unter `/dashboard/`.
+
+- **Produktion:** Nach `make build-dashboard` und `make build` enthält das Binary die SPA. Aufruf: `http://localhost:9123/dashboard/`
+- **Dev mit HMR:** `make dev` startet Vite und den Server; Anfragen unter `/dashboard/` werden an den Vite-Dev-Server (Port 5173) weitergeleitet. Optional: `CORTEX_CORS_ORIGIN=http://localhost:5173` setzen, wenn das Dashboard von anderem Port auf die API zugreift.
+
+**Makefile:**
+- `make build-dashboard` – baut das Dashboard nach `internal/dashboard/dist` (für Embed)
+- `make build` – baut die Go-Binaries (nutzt bereits gebautes Dashboard, falls vorhanden)
+- `make dev` – startet Vite und Server mit `CORTEX_ENV=dev` (Proxy auf Vite für HMR)
+
+**Seiten:** Übersicht (Stats/Analytics), Memories (Liste/Löschen), Entities, Relations, Einstellungen (Tenant, API-Key).
+
 ## 🔗 OpenClaw-Integration
 
 ### Skill-Installation

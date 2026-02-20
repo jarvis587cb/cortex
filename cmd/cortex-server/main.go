@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"cortex/internal/api"
+	"cortex/internal/dashboard"
 	"cortex/internal/helpers"
 	"cortex/internal/middleware"
 	"cortex/internal/store"
@@ -48,7 +49,16 @@ func main() {
 	mux.HandleFunc("/health", handlers.HandleHealth)
 
 	// Neutron-compatible Seeds API (with rate limiting)
-	mux.HandleFunc("/seeds", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleStoreSeed, http.MethodPost))))
+	mux.HandleFunc("/seeds", middleware.RateLimitMiddleware(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.HandleListSeeds(w, r)
+		case http.MethodPost:
+			handlers.HandleStoreSeed(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
 	mux.HandleFunc("/seeds/query", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleQuerySeed, http.MethodPost))))
 	mux.HandleFunc("/seeds/generate-embeddings", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost))))
 	mux.HandleFunc("/seeds/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete))))
@@ -158,14 +168,19 @@ func main() {
 	mux.HandleFunc("/agent-contexts", middleware.RateLimitMiddleware(middleware.AuthMiddleware(agentContextsHandler)))
 	mux.HandleFunc("/agent-contexts/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(agentContextsHandler)))
 
+	// Dashboard (embedded SPA; in dev mode proxies to Vite)
+	mux.Handle("/dashboard", dashboard.Handler())
+	mux.Handle("/dashboard/", dashboard.Handler())
+
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {
 		port = helpers.DefaultPort
 	}
 
 	addr := ":" + port
+	handler := middleware.CORSMiddleware(middleware.LoggingMiddleware(mux))
 	slog.Info("cortex server starting", "addr", addr, "db", dbPath)
-	if err := http.ListenAndServe(addr, middleware.LoggingMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}

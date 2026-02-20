@@ -76,3 +76,22 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
+// CORSMiddleware sets CORS headers when CORTEX_CORS_ORIGIN is set (e.g. http://localhost:5173 for dashboard dev).
+// If unset, the handler is unchanged.
+func CORSMiddleware(next http.Handler) http.Handler {
+	origin := os.Getenv("CORTEX_CORS_ORIGIN")
+	if origin == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

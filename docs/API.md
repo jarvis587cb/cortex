@@ -86,6 +86,23 @@ curl -X POST http://localhost:9123/seeds \
   }'
 ```
 
+### `GET /seeds` - Memories auflisten (Pagination)
+
+Gibt eine paginierte Liste von Memories für einen Tenant zurück (z. B. für das Dashboard). Embeddings werden nicht mitgeliefert.
+
+**Query-Parameter:**
+- `appId` (string, erforderlich)
+- `externalUserId` (string, erforderlich)
+- `limit` (int, optional) – Standard 50, Max 100
+- `offset` (int, optional) – Standard 0
+
+**Response (200 OK):**
+JSON-Array von Memory-Objekten (id, content, type, metadata, created_at usw., ohne embedding).
+
+```bash
+curl "http://localhost:9123/seeds?appId=myapp&externalUserId=user123&limit=20&offset=0"
+```
+
 ### `POST /seeds/query` - Memory-Suche
 
 Führt semantische Suche durch (mit Embeddings) oder fällt auf Textsuche zurück.
