@@ -698,12 +698,20 @@ func (h *Handlers) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	if h.handleStoreOperationWithNotFound(w, h.store.DeleteWebhook(id), "Webhook", "delete webhook", "id", id) {
+	appID := helpers.GetQueryParam(r, "appId")
+	if appID == "" {
+		http.Error(w, "missing required query parameter: appId", http.StatusBadRequest)
 		return
 	}
-
-	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(id, "Webhook deleted successfully"))
+	wh, err := h.store.GetWebhookByIDAndApp(id, appID)
+	if h.handleStoreOperationWithNotFound(w, err, "Webhook", "delete webhook", "id", id, "appId", appID) {
+		return
+	}
+	if err := h.store.DeleteWebhook(wh.ID); err != nil {
+		helpers.HandleInternalErrorSlog(w, "delete webhook error", "error", err, "id", wh.ID)
+		return
+	}
+	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(wh.ID, "Webhook deleted successfully"))
 }
 
 // Export/Import API Handlers
@@ -771,6 +779,11 @@ func (h *Handlers) HandleBackup(w http.ResponseWriter, r *http.Request) {
 	if backupPath == "" {
 		// Default backup path
 		backupPath = fmt.Sprintf("cortex-backup-%s.db", time.Now().Format("20060102-150405"))
+	} else {
+		if err := helpers.ValidateBackupPath(backupPath); err != nil {
+			http.Error(w, "invalid path: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	if err := h.store.BackupDatabase(backupPath); err != nil {
@@ -788,6 +801,10 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 	backupPath := helpers.GetQueryParam(r, "path")
 	if backupPath == "" {
 		http.Error(w, "path parameter is required", http.StatusBadRequest)
+		return
+	}
+	if err := helpers.ValidateBackupPath(backupPath); err != nil {
+		http.Error(w, "invalid path: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -982,13 +999,19 @@ func (h *Handlers) HandleListAgentContexts(w http.ResponseWriter, r *http.Reques
 	helpers.WriteJSON(w, http.StatusOK, resp)
 }
 
-// HandleGetAgentContext returns one agent context by ID (Neutron-compatible)
+// HandleGetAgentContext returns one agent context by ID (Neutron-compatible). Requires appId and externalUserId for tenant isolation.
 func (h *Handlers) HandleGetAgentContext(w http.ResponseWriter, r *http.Request) {
 	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/agent-contexts/")
 	if !ok {
 		return
 	}
-	ctx, err := h.store.GetAgentContextByID(id)
+	appID := helpers.GetQueryParam(r, "appId")
+	externalUserID := helpers.GetQueryParam(r, "externalUserId")
+	if appID == "" || externalUserID == "" {
+		http.Error(w, "missing required query parameter: appId and externalUserId", http.StatusBadRequest)
+		return
+	}
+	ctx, err := h.store.GetAgentContextByIDAndTenant(id, appID, externalUserID)
 	if err != nil {
 		if helpers.HandleNotFoundError(w, err, "Agent context") {
 			return

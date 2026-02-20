@@ -430,8 +430,10 @@ curl "http://localhost:9123/agent-contexts?appId=openclaw&externalUserId=user1&a
 
 #### `GET /agent-contexts/:id` – Context abrufen
 
+`appId` und `externalUserId` (Query) sind erforderlich (Tenant-Isolation).
+
 ```bash
-curl "http://localhost:9123/agent-contexts/1"
+curl "http://localhost:9123/agent-contexts/1?appId=openclaw&externalUserId=user1"
 ```
 
 ### Cortex-API (Erweitert)

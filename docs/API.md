@@ -697,8 +697,10 @@ curl "http://localhost:9123/webhooks?appId=myapp" \
 
 ### Webhook löschen
 
+`appId` (Query) ist erforderlich (Tenant-Isolation).
+
 ```bash
-curl -X DELETE "http://localhost:9123/webhooks/1" \
+curl -X DELETE "http://localhost:9123/webhooks/1?appId=myapp"
 ```
 
 ### Webhook-Payload

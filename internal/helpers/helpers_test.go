@@ -177,6 +177,29 @@ func TestUnmarshalMetadataNull(t *testing.T) {
 	}
 }
 
+func TestValidateBackupPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"empty", "", true},
+		{"relative safe", "backup.db", false},
+		{"relative subdir", "backups/foo.db", false},
+		{"traversal", "..", true},
+		{"traversal subdir", "a/../../etc/passwd", true},
+		{"absolute unix", "/tmp/backup.db", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateBackupPath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateBackupPath(%q) err = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestGetQueryParam(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test?param=value&empty=", nil)
 

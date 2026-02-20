@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -267,6 +268,22 @@ func UnmarshalEntityData(dataJSON string) map[string]any {
 		return map[string]any{}
 	}
 	return data
+}
+
+// ValidateBackupPath rejects paths that could cause path traversal (e.g. ".." or absolute paths).
+// Use for backup/restore path parameters.
+func ValidateBackupPath(path string) error {
+	if path == "" {
+		return errors.New("path is required")
+	}
+	cleaned := filepath.Clean(path)
+	if filepath.IsAbs(cleaned) {
+		return errors.New("absolute paths are not allowed")
+	}
+	if strings.Contains(cleaned, "..") {
+		return errors.New("path must not contain '..'")
+	}
+	return nil
 }
 
 // Query Parameter Helpers

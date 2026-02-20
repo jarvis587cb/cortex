@@ -487,6 +487,16 @@ func (s *CortexStore) DeleteWebhook(id int64) error {
 	return s.db.Delete(&models.Webhook{}, id).Error
 }
 
+// GetWebhookByIDAndApp returns a webhook only if it belongs to the given app (tenant isolation).
+func (s *CortexStore) GetWebhookByIDAndApp(id int64, appID string) (*models.Webhook, error) {
+	var wh models.Webhook
+	err := s.db.Where("id = ? AND app_id = ?", id, appID).First(&wh).Error
+	if err != nil {
+		return nil, err
+	}
+	return &wh, nil
+}
+
 // Agent Contexts (Neutron-compatible)
 
 func (s *CortexStore) CreateAgentContext(ctx *models.AgentContext) error {
@@ -512,6 +522,16 @@ func (s *CortexStore) ListAgentContexts(appID, externalUserID, agentID, memoryTy
 func (s *CortexStore) GetAgentContextByID(id int64) (*models.AgentContext, error) {
 	var ctx models.AgentContext
 	err := s.db.First(&ctx, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &ctx, nil
+}
+
+// GetAgentContextByIDAndTenant returns an agent context only if it belongs to the given tenant.
+func (s *CortexStore) GetAgentContextByIDAndTenant(id int64, appID, externalUserID string) (*models.AgentContext, error) {
+	var ctx models.AgentContext
+	err := s.db.Where("id = ? AND app_id = ? AND external_user_id = ?", id, appID, externalUserID).First(&ctx).Error
 	if err != nil {
 		return nil, err
 	}
