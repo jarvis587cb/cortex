@@ -26,9 +26,16 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 }
 
 // LoggingMiddleware logs each request to the console (method, path, status, size).
+// If the handler panics, the panic is logged and re-raised.
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+		defer func() {
+			if err := recover(); err != nil {
+				slog.Error("handler panic", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr, "panic", err)
+				panic(err)
+			}
+		}()
 		next.ServeHTTP(rec, r)
 		slog.Info("request",
 			"method", r.Method,
