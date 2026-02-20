@@ -110,13 +110,14 @@ func (l *LocalEmbeddingService) GenerateEmbedding(content string, contentType st
 		normalizedHash := float32(hash%10000) / 10000.0
 
 		// Füge statistische Features hinzu
-		if i%3 == 0 {
+		switch i % 3 {
+		case 0:
 			// Wortanzahl-Feature
 			value = normalizedHash * float32(wordCount%100) / 100.0
-		} else if i%3 == 1 {
+		case 1:
 			// Zeichenanzahl-Feature
 			value = normalizedHash * float32(charCount%1000) / 1000.0
-		} else {
+		default:
 			// Reiner Hash-Wert
 			value = normalizedHash
 		}
