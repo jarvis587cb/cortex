@@ -25,14 +25,6 @@ metadata:
 
 **Cortex** ist eine **vollständig lokale**, persistente Memory-API für OpenClaw Agents. Ein Skill für Server-Installation, API-Nutzung und OpenClaw-Integration mit Neutron-kompatiblen CLI-Befehlen.
 
-## References
-
-- `README.md` – Projekt-Überblick, Build, Docker, Architektur
-- `docs/API.md` – Vollständige API-Dokumentation
-- `docs/CORTEX_NEUTRON_ALTERNATIVE.md` – Neutron-Alternative, OpenClaw-Guide-Vergleich
-- `docs/VERGLEICH_NEUTRON.md` – Feature-für-Feature-Vergleich mit Neutron
-- `scripts/README.md` – CLI-Tool Dokumentation
-
 ## Was ist Cortex?
 
 Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als persistentes "Gehirn" für OpenClaw-Agenten dient. Es speichert Erinnerungen (Memories), Entities mit Fakten sowie Relationen zwischen Entities.
@@ -48,12 +40,10 @@ Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als pe
 
 ---
 
-## Prerequisites
+## Voraussetzungen
 
-1. **Go 1.23+** installiert (`go version` zum Prüfen)
-2. **Git** und optional **Make**
-3. Cortex-Projekt geklont oder vorhanden
-4. (Optional) Docker für Container-Deployment
+- **Go 1.23+** (`go version`)
+- **Git** und **Make**
 
 ---
 
@@ -90,17 +80,8 @@ systemctl --user status cortex-server
 
 ```bash
 cd /path/to/cortex
-go mod tidy
 make build    # Erstellt cortex-server und cortex-cli
 make run      # Startet den Server
-```
-
-### Docker
-
-```bash
-make docker-build
-make docker-run
-# oder: docker-compose up -d
 ```
 
 ### Binaries installieren
@@ -109,25 +90,7 @@ make docker-run
 make install  # Installiert beide Binaries nach /usr/local/bin
 ```
 
-### systemd User Service (Empfohlen für dauerhaften Betrieb)
-
-Installiere cortex-server als systemd user service, der automatisch beim Login startet:
-
-**Manuelle Installation:**
-
-```bash
-# 1. Service-File kopieren
-mkdir -p ~/.config/systemd/user
-cp skills/cortex/cortex-server.service ~/.config/systemd/user/cortex-server.service
-
-# 2. %h durch $HOME ersetzen (falls nötig)
-sed -i "s|%h|$HOME|g" ~/.config/systemd/user/cortex-server.service
-
-# 3. Service aktivieren und starten
-systemctl --user daemon-reload
-systemctl --user enable cortex-server.service
-systemctl --user start cortex-server.service
-```
+### systemd User Service
 
 Der Service:
 - Startet automatisch beim Login
@@ -176,57 +139,32 @@ export CORTEX_RATE_LIMIT=100
 export CORTEX_RATE_LIMIT_WINDOW=1m
 ```
 
-**Wichtig:** Für lokale Installationen ist **kein API-Key erforderlich**. API-Keys sind nur für Produktions-/Multi-User-Setups relevant.
+**Hinweis:** Für lokale Installationen ist kein API-Key erforderlich.
 
-### OpenClaw / Script-Client
-
-In `.env` oder Umgebung (Cortex-Projekt: `cp .env.example .env` und anpassen):
+### Client-Konfiguration
 
 ```bash
-CORTEX_API_URL=http://localhost:9123
-CORTEX_APP_ID=openclaw
-CORTEX_USER_ID=default
-# API-Key nicht benötigt für lokale Installation
-# Nur für Produktions-/Multi-User-Setups relevant:
-# CORTEX_API_KEY=dein_geheimer_key
-```
-
-### Config-Datei (optional)
-
-`~/.openclaw/cortex.json`:
-
-```json
-{
-  "db_path": "~/.openclaw/cortex.db",
-  "port": 9123,
-  "log_level": "info",
-  "rate_limit": 100,
-  "rate_limit_window": "1m"
-}
+export CORTEX_API_URL=http://localhost:9123
+export CORTEX_APP_ID=openclaw
+export CORTEX_USER_ID=default
 ```
 
 ---
 
-## Server starten & Health Check
-
-### Server starten
+## Server starten
 
 ```bash
 make run
 # oder
 ./cortex-server
-# oder
-go run ./cmd/cortex-server
 ```
 
-### Health Check
-
+**Health Check:**
 ```bash
 curl http://localhost:9123/health
-# oder: ./cortex-cli health
+# oder
+./cortex-cli health
 ```
-
-Erwartete Ausgabe: `{"status":"ok"}`
 
 ---
 
@@ -258,7 +196,7 @@ Nach `make build` – empfohlene Befehle für alle Operationen:
 ./cortex-cli stats
 ```
 
-**Semantische Suche (query):** `query <text> [limit] [threshold] [seedIds]` – limit Standard 5, threshold Standard 0.2.
+**Query-Syntax:** `query <text> [limit] [threshold] [seedIds]` – Standard: limit=5, threshold=0.2
 
 #### Agent Contexts (Session Persistence)
 
@@ -273,7 +211,7 @@ Nach `make build` – empfohlene Befehle für alle Operationen:
 ./cortex-cli context-get <id>
 ```
 
-Memory-Typen: `episodic`, `semantic`, `procedural`, `working`.
+**Memory-Typen:** `episodic`, `semantic`, `procedural`, `working`
 
 #### Embeddings nachziehen (Batch)
 
@@ -323,10 +261,9 @@ Vor jeder AI-Interaktion Recall, nach jedem Austausch Capture (z. B. für OpenCl
 ./cortex-cli store "Zusammenfassung oder Rohinhalt des Austauschs"
 ```
 
-**Umgebungsvariablen für automatische Ausführung:**
-
-- **CORTEX_AUTO_RECALL** (default: `true`): Bei `false` oder `0` sollte Recall übersprungen werden.
-- **CORTEX_AUTO_CAPTURE** (default: `true`): Bei `false` oder `0` sollte Capture übersprungen werden.
+**Umgebungsvariablen:**
+- `CORTEX_AUTO_RECALL` (default: `true`) – Recall deaktivieren mit `false` oder `0`
+- `CORTEX_AUTO_CAPTURE` (default: `true`) – Capture deaktivieren mit `false` oder `0`
 
 ### Typische Workflows
 
@@ -383,7 +320,7 @@ Vor jeder AI-Interaktion Recall, nach jedem Austausch Capture (z. B. für OpenCl
 | GET    | /agent-contexts      | Contexts auflisten     |
 | GET    | /agent-contexts/{id} | Ein Context abrufen    |
 
-Weitere: Bundles, Webhooks, Export/Import, Backup/Restore, Analytics (siehe Haupt-README).
+Weitere Endpunkte: Bundles, Webhooks, Export/Import, Backup/Restore, Analytics (siehe `docs/API.md`).
 
 ---
 
@@ -433,85 +370,41 @@ Ausführlich: [docs/CORTEX_NEUTRON_ALTERNATIVE.md](../docs/CORTEX_NEUTRON_ALTERN
 ## Makefile-Targets
 
 ```bash
-make help          # Alle Targets
-make build         # cortex-server + cortex-cli
-make run           # Server starten
-make test          # Tests
-make docker-build  # Docker Image
-make docker-run    # Container starten
-make install       # Beide Binaries nach /usr/local/bin
+make help    # Hilfe anzeigen
+make build   # Beide Binaries bauen
+make run     # Server starten
+make test    # Tests ausführen
+make install # Binaries nach /usr/local/bin installieren
+make clean   # Build-Artefakte entfernen
 ```
 
 ---
 
 ## Troubleshooting
 
-### Port bereits belegt
+### Häufige Probleme
 
+**Port bereits belegt:**
 ```bash
-export CORTEX_PORT=9124
-go run ./cmd/cortex-server
+export CORTEX_PORT=9124 && make run
 ```
 
-### Datenbank-Fehler
+**Server startet nicht:**
+- Go installiert? `go version`
+- Port frei? `lsof -ti:9123`
+- Logs prüfen: `CORTEX_LOG_LEVEL=debug make run`
 
+**CLI-Befehle funktionieren nicht:**
+- Binary vorhanden? `ls -la cortex-cli`
+- Server läuft? `./cortex-cli health`
+- Umgebungsvariablen? `echo $CORTEX_API_URL`
+
+**Datenbank zurücksetzen:**
 ```bash
-ls -la ~/.openclaw/cortex.db
-# Neu erstellen (ACHTUNG: Datenverlust!): rm ~/.openclaw/cortex.db
-```
-
-### Embeddings / Logs
-
-```bash
-CORTEX_LOG_LEVEL=debug go run ./cmd/cortex-server
-```
-
-### Server startet nicht
-
-1. Prüfe, ob Go installiert ist: `go version`
-2. Prüfe, ob Port frei ist: `lsof -ti:9123` (oder anderen Port)
-3. Prüfe Logs: `CORTEX_LOG_LEVEL=debug make run`
-
-### CLI-Befehle funktionieren nicht
-
-1. Prüfe, ob Binary existiert: `ls -la cortex-cli`
-2. Prüfe, ob Server läuft: `./cortex-cli health`
-3. Prüfe Umgebungsvariablen: `echo $CORTEX_API_URL`
-
----
-
-## Output Formats
-
-CLI-Befehle geben strukturierte JSON-Ausgaben zurück. Für bessere Lesbarkeit:
-
-```bash
-# JSON-Output formatieren (mit jq)
-./cortex-cli query "Kaffee" 10 | jq
-
-# Oder direkt JSON anzeigen
-./cortex-cli stats | jq '.total_memories'
+rm ~/.openclaw/cortex.db  # ACHTUNG: Datenverlust!
 ```
 
 ---
-
-## Tips
-
-- Verwende `./cortex-cli help` für detaillierte Hilfe zu jedem Befehl
-- Memory-IDs sind numerisch und inkrementell
-- Semantische Suche funktioniert am besten mit vollständigen Sätzen oder Schlüsselwörtern
-- Threshold-Werte zwischen 0.2-0.5 geben meist gute Ergebnisse
-- Für Produktions-Setups: API-Key setzen und Rate-Limiting konfigurieren
-- Embeddings werden automatisch beim Speichern generiert, können aber auch nachträglich mit `generate-embeddings` erstellt werden
-
----
-
-## Dokumentation
-
-- **README.md** – Projekt-Überblick, Build, Docker
-- **docs/API.md** – Vollständige API
-- **docs/CORTEX_NEUTRON_ALTERNATIVE.md** – Neutron-Alternative, OpenClaw-Guide-Vergleich
-- **docs/VERGLEICH_NEUTRON.md** – Feature-für-Feature-Vergleich mit Neutron
-- **scripts/README.md** – CLI-Tool Dokumentation
 
 ## Lizenz
 
