@@ -26,6 +26,8 @@ export interface QueryMemoryRequest {
   threshold?: number;
   /** optional: limit search to these memory IDs */
   seedIds?: number[];
+  /** optional: filter by metadata fields (e.g., {"typ": "persönlich", "kategorie": "präferenz"}) */
+  metadataFilter?: Record<string, any>;
 }
 
 export interface QueryMemoryResult {

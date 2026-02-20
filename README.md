@@ -185,8 +185,11 @@ Das CLI-Tool bietet alle Funktionen ohne externe Abhängigkeiten:
 ./cortex-cli query "Suchbegriff" 10 0.5
 
 # Semantische Suche mit Metadata-Filter
-./cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
-./cortex-cli query "Gateway" 10 0.5 "" '{"typ":"system"}'
+./cortex-cli query "Theme" 10 0.5 '{"typ":"persönlich"}'
+./cortex-cli query "Gateway" 10 0.5 '{"typ":"system"}'
+
+# Mit seedIDs und metadataFilter
+./cortex-cli query "Theme" 10 0.5 "1,2,3" '{"typ":"persönlich"}'
 
 # Memory löschen
 ./cortex-cli delete <id>

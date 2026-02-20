@@ -101,7 +101,13 @@ Führt semantische Suche durch (mit Embeddings) oder fällt auf Textsuche zurüc
   "externalUserId": "user123",         // Optional wenn im Query-String
   "query": "Was mag der Benutzer trinken?",
   "limit": 5,                          // Optional, Standard: 5, Max: 100
-  "bundleId": 1                        // Optional: Filter nach Bundle
+  "threshold": 0.5,                    // Optional, 0-1: nur Ergebnisse mit similarity >= threshold
+  "bundleId": 1,                        // Optional: Filter nach Bundle
+  "seedIds": [1, 2, 3],                // Optional: limit search to these memory IDs
+  "metadataFilter": {                  // Optional: filter by metadata fields
+    "typ": "persönlich",
+    "kategorie": "präferenz"
+  }
 }
 ```
 
@@ -143,7 +149,19 @@ curl -X POST http://localhost:9123/seeds/query \
     "appId": "myapp",
     "externalUserId": "user123",
     "query": "Was mag der Benutzer?",
-    "limit": 5
+    "limit": 5,
+    "threshold": 0.5
+  }'
+
+# Mit Metadata-Filter
+curl -X POST http://localhost:9123/seeds/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appId": "myapp",
+    "externalUserId": "user123",
+    "query": "Theme",
+    "limit": 10,
+    "metadataFilter": {"typ": "persönlich"}
   }'
 ```
 

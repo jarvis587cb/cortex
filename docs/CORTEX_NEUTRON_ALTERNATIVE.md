@@ -555,7 +555,7 @@ Der offizielle Guide beschreibt die Integration von Neutron in OpenClaw: ClawHub
 | Aspekt | Guide (Neutron) | Cortex |
 |--------|------------------|--------|
 | **Save** | `neutron-memory.sh save "content" "tag"` | `cortex-cli store "content" [metadata]`; POST /seeds |
-| **Search** | `search "query" [limit] [threshold]`; optional seedIds | `cortex-cli query "text" [limit] [threshold] [seedIds]`; POST /seeds/query |
+| **Search** | `search "query" [limit] [threshold]`; optional seedIds | `cortex-cli query "text" [limit] [threshold] [seedIds] [metadataFilter]`; POST /seeds/query |
 | **API** | POST /seeds, POST /seeds/query | POST /seeds, POST /seeds/query, DELETE /seeds/:id, POST /seeds/generate-embeddings |
 
 ### Agent Contexts (Session Persistence)

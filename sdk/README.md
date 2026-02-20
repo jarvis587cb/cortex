@@ -86,7 +86,13 @@ const results = await client.queryMemory({
   externalUserId: "user123",
   query: "search query",
   limit: 5,
+  threshold: 0.5, // Optional: 0-1, only return results with similarity >= threshold
   bundleId: 1, // Optional: filter by bundle
+  seedIds: [1, 2, 3], // Optional: limit search to these memory IDs
+  metadataFilter: { // Optional: filter by metadata fields
+    typ: "persönlich",
+    kategorie: "präferenz"
+  }
 });
 ```
 

@@ -40,7 +40,7 @@ cortex-cli store "Text" '[{"type":"fact"}]'  # Speichern
 cortex-cli store "Carsten bevorzugt dunkles Theme" '{"typ":"persönlich","kategorie":"präferenz"}'  # Mit Metadata-Typ
 cortex-cli store "Gateway restart um 14:30" '{"typ":"system","kategorie":"gateway"}'  # System-Event
 cortex-cli query "Suchbegriff" 10              # Semantische Suche
-cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'  # Suche mit Metadata-Filter
+cortex-cli query "Theme" 10 0.5 '{"typ":"persönlich"}'  # Suche mit Metadata-Filter
 cortex-cli delete <id>                        # Löschen
 cortex-cli stats                              # Stats
 
@@ -116,16 +116,19 @@ Cortex unterstützt strukturierte Metadata-Typen, um Memories zu kategorisieren 
 
 ```bash
 # Nur persönliche Memories suchen
-cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
+cortex-cli query "Theme" 10 0.5 '{"typ":"persönlich"}'
 
 # Nur System-Events suchen
-cortex-cli query "Gateway" 10 0.5 "" '{"typ":"system"}'
+cortex-cli query "Gateway" 10 0.5 '{"typ":"system"}'
 
 # Nach Kategorie filtern
-cortex-cli query "Docker" 10 0.5 "" '{"kategorie":"docker"}'
+cortex-cli query "Docker" 10 0.5 '{"kategorie":"docker"}'
 
 # Kombination von Filtern
-cortex-cli query "Restart" 10 0.5 "" '{"typ":"system","kategorie":"gateway"}'
+cortex-cli query "Restart" 10 0.5 '{"typ":"system","kategorie":"gateway"}'
+
+# Mit seedIDs und metadataFilter
+cortex-cli query "Theme" 10 0.5 "1,2,3" '{"typ":"persönlich"}'
 ```
 
 ## Embeddings & Semantische Suche
