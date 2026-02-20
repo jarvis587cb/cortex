@@ -301,13 +301,26 @@ func cmdQuery(client *cliClient, args []string) error {
 			return fmt.Errorf("threshold muss eine Zahl zwischen 0 und 1 sein")
 		}
 	}
+	// Parse optional arguments: seedIDs and/or metadataFilter
+	// If args[3] looks like JSON (starts with '{'), treat it as metadataFilter
+	// Otherwise, treat it as seedIDs
 	if len(args) >= 4 && args[3] != "" {
-		var err error
-		seedIDs, err = parseSeedIDs(args[3])
-		if err != nil {
-			return err
+		trimmed := strings.TrimSpace(args[3])
+		// Check if args[3] looks like JSON (metadataFilter)
+		if len(trimmed) > 0 && trimmed[0] == '{' {
+			if err := json.Unmarshal([]byte(args[3]), &metadataFilter); err != nil {
+				return fmt.Errorf("metadataFilter muss gültiges JSON sein: %w", err)
+			}
+		} else {
+			// Treat as seedIDs
+			var err error
+			seedIDs, err = parseSeedIDs(args[3])
+			if err != nil {
+				return err
+			}
 		}
 	}
+	// If args[4] exists, it's metadataFilter (either because args[3] was seedIDs, or args[3] was empty)
 	if len(args) >= 5 && args[4] != "" {
 		if err := json.Unmarshal([]byte(args[4]), &metadataFilter); err != nil {
 			return fmt.Errorf("metadataFilter muss gültiges JSON sein: %w", err)
