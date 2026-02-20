@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -102,10 +103,12 @@ func getClientID(r *http.Request) string {
 		return authHeader
 	}
 
-	// Fallback to IP address
+	// Fallback to IP address; X-Forwarded-For can be "client, proxy1, proxy2" — use leftmost (client)
 	ip := r.RemoteAddr
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = forwarded
+		if first := strings.Split(forwarded, ",")[0]; strings.TrimSpace(first) != "" {
+			ip = strings.TrimSpace(first)
+		}
 	}
 
 	return ip
