@@ -1,5 +1,6 @@
-# Cortex Binary
-cortex
+# Cortex Binaries
+cortex-server
+cortex-cli
 
 # Go build artifacts
 *.exe
