@@ -177,6 +177,21 @@ func TestUnmarshalMetadataNull(t *testing.T) {
 	}
 }
 
+func TestSafeJSONPathKey(t *testing.T) {
+	ok := []string{"a", "type", "user_id", "content-type", "a.b.c"}
+	for _, k := range ok {
+		if !SafeJSONPathKey(k) {
+			t.Errorf("SafeJSONPathKey(%q) = false, want true", k)
+		}
+	}
+	bad := []string{"", "a b", "a\"b", "a\\b", "a\nb", "a[b]", "a]b", "$x"}
+	for _, k := range bad {
+		if SafeJSONPathKey(k) {
+			t.Errorf("SafeJSONPathKey(%q) = true, want false", k)
+		}
+	}
+}
+
 func TestSanitizeFilenameForHeader(t *testing.T) {
 	tests := []struct {
 		in   string

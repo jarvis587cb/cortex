@@ -285,6 +285,23 @@ func SanitizeFilenameForHeader(s string) string {
 	return b.String()
 }
 
+// SafeJSONPathKey reports whether key is safe to use in a simple SQLite json_extract path ("$."+key).
+// Allows only letters, digits, underscore, hyphen, and dot to avoid path injection or broken paths.
+func SafeJSONPathKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for _, r := range key {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '_', r == '-', r == '.':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // ValidateBackupPath rejects paths that could cause path traversal (e.g. ".." or absolute paths).
 // Use for backup/restore path parameters.
 func ValidateBackupPath(path string) error {

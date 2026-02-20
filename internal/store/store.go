@@ -99,6 +99,9 @@ func (s *CortexStore) applyOptionalFilters(dbQuery *gorm.DB, filters map[string]
 	// Metadata filter: filter by JSON fields in metadata column using SQLite JSON1 extension
 	if metadataFilter, ok := filters["metadataFilter"].(map[string]any); ok && len(metadataFilter) > 0 {
 		for key, value := range metadataFilter {
+			if !helpers.SafeJSONPathKey(key) {
+				continue
+			}
 			// Use json_extract to query JSON fields in SQLite
 			// Handle both string and other types
 			if strValue, isString := value.(string); isString {
