@@ -1,299 +1,467 @@
-# Cortex – Gehirn-Backend für OpenClaw
+<div align="center">
 
-Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als persistentes „Gehirn“ für OpenClaw-Agenten dient. Es speichert Erinnerungen (Memories), Entities mit Fakten sowie Relationen zwischen Entities und wird über ein OpenClaw-Plugin angebunden.
+![Cortex Logo](assets/logo.png)
 
-## Features
+# Cortex – Lokales Gedächtnis für OpenClaw
 
+Cortex ist ein **leichtgewichtiges Go-Backend** mit SQLite-Datenbank, das als persistentes „Gehirn" für OpenClaw-Agenten dient. Es speichert Erinnerungen (Memories), Entities mit Fakten sowie Relationen zwischen Entities und bietet vollständige **Neutron-kompatible API** ohne Cloud-Abhängigkeit.
+
+> **🎯 Hauptvorteile:** Lokal, kostenlos, kein API-Key erforderlich, vollständig Neutron-kompatibel
+
+</div>
+
+## ✨ Features
+
+### Kern-Features
 - ✅ **Persistente Speicherung**: Erinnerungen, Fakten und Relationen in SQLite
-- ✅ **Semantische Suche mit Embeddings**: Vektor-basierte Suche für bessere Ergebnisse
-- ✅ **Lokaler Embedding-Service**: Vollständig lokale Embedding-Generierung ohne externe APIs
+- ✅ **Semantische Suche**: Vektor-basierte Suche mit lokalen Embeddings
+- ✅ **Lokaler Embedding-Service**: Vollständig offline, keine externen APIs
+- ✅ **Neutron-kompatibel**: Gleiche API-Formate wie Vanar Neutron
 - ✅ **Multi-Tenant-Support**: Isolation durch `appId` + `externalUserId`
-- ✅ **Neutron-kompatibel**: Gleiche API-Formate wie neutron-local
+
+### OpenClaw-Integration
+- ✅ **Auto-Recall/Capture Hooks**: Automatisches Abrufen und Speichern von Memories
+- ✅ **Skill-Integration**: Ready-to-use OpenClaw Skill mit `hooks.sh`
+- ✅ **TypeScript SDK**: Vollständiges SDK für einfache Integration
+
+### Erweiterte Features
 - ✅ **Bundles**: Organisation von Memories in logische Gruppen
+- ✅ **Entities & Relations**: Knowledge Graph Funktionalität
 - ✅ **Webhooks**: Event-Benachrichtigungen für Memory-Änderungen
 - ✅ **Analytics**: Dashboard-Daten über API
 - ✅ **Export/Import**: Daten-Migration unterstützt
 - ✅ **Backup/Restore**: Datenbank-Backup verfügbar
 - ✅ **Rate Limiting**: Token-Bucket-Algorithmus für API-Schutz
+
+### Technische Features
 - ✅ **Leichtgewichtig**: Pure-Go (kein cgo), keine externen Dependencies außer SQLite
 - ✅ **REST-API**: Einfache HTTP-Endpunkte für alle Operationen
-- ✅ **TypeScript SDK**: Vollständiges SDK für einfache Integration
+- ✅ **CLI-Tool**: Vollständiges CLI (`cortex-cli`) ohne jq/curl-Abhängigkeit
 - ✅ **Docker Support**: Containerisierung für einfaches Deployment
+- ✅ **systemd Integration**: Makefile-Targets für Service-Management
 
-## Architektur
+## 🚀 Quick Start
 
-Cortex besteht aus folgenden Komponenten:
+### 1. Installation
 
-### 1. Go-Binaries
+```bash
+# Repository klonen
+git clone https://github.com/jarvis587cb/cortex.git
+cd cortex
 
-Es werden zwei Binaries gebaut:
+# Binaries bauen
+make build
 
-- **cortex-server** – Backend-Service mit SQLite-Datenbank und HTTP-API (`cmd/cortex-server`)
-- **cortex-cli** – CLI-Client für die API (health, store, query, delete, stats), keine jq/curl-Abhängigkeit (`cmd/cortex-cli`)
+# Server starten
+make run
+```
 
-**Server (cortex-server):**
+### 2. Health-Check
 
-- **Datenbank**: SQLite (`~/.openclaw/cortex.db` oder über `CORTEX_DB_PATH`)
-- **Port**: 9123 (Standard) oder über `CORTEX_PORT`
-- **Technologie**: Go 1.23+, GORM, `github.com/glebarez/sqlite` (pure-Go)
-- **Code-Struktur**: 
-  - `cmd/cortex-server/main.go` – Server-Start und Routing
-  - `internal/models/` – Datenmodelle
-  - `internal/store/` – Datenbank-Operationen
-  - `internal/api/` – HTTP-Handler
-  - `internal/helpers/` – Utility-Funktionen
-  - `internal/middleware/` – HTTP-Middleware
-  - `internal/embeddings/` – Embedding-Generierung und semantische Suche
+```bash
+# Mit CLI
+./cortex-cli health
 
-### 2. CLI-Tool (`cortex-cli`)
+# Mit curl
+curl http://localhost:9123/health
+```
 
-**Go-Binary** für alle CLI-Operationen:
+### 3. Erste Schritte
 
-- `cortex-cli` – CLI-Tool für alle API-Operationen (health, store, query, delete, stats, context-*, generate-embeddings, benchmark, api-key)
+```bash
+# Memory speichern
+./cortex-cli store "Der Nutzer mag Kaffee mit Hafermilch"
 
-Siehe [scripts/README.md](scripts/README.md) für Details.
+# Memory suchen
+./cortex-cli query "Kaffee" 10
 
-### 3. OpenClaw-Plugin (geplant)
+# Statistiken
+./cortex-cli stats
+```
 
-**TypeScript-Plugin** für OpenClaw-Agenten (in Entwicklung):
+## 📦 Installation & Setup
 
-- Registriert Agent-Tools für Memory-Operationen
-- Ruft die Go-API über HTTP auf
-- Unterstützt Multi-Tenant-Konfiguration
+### Voraussetzungen
 
-## Installation & Start
+- **Go 1.23+** für Build und Entwicklung
+- **Bash** für Scripts (optional)
+- **SQLite** (wird automatisch von Go-Binary verwendet)
 
-### Konfiguration (optional)
+### Build
 
-Die Datei `.env` wird nicht ins Repository committed (steht in `.gitignore`). Für lokale Anpassungen:
+```bash
+# Beide Binaries bauen (cortex-server, cortex-cli)
+make build
+
+# Nur Server
+go build -o cortex-server ./cmd/cortex-server
+
+# Nur CLI
+go build -o cortex-cli ./cmd/cortex-cli
+```
+
+### Server starten
+
+**Option 1: Direkt (Entwicklung)**
+```bash
+make run
+# oder
+go run ./cmd/cortex-server
+```
+
+**Option 2: Als systemd Service (Produktion)**
+```bash
+# Service installieren und aktivieren
+make service-install
+make service-enable
+make service-start
+
+# Status prüfen
+make service-status
+
+# Logs anzeigen
+make service-logs
+```
+
+**Option 3: Docker**
+```bash
+docker-compose up -d
+```
+
+### Konfiguration
+
+Die Datei `.env` wird nicht ins Repository committed. Für lokale Anpassungen:
 
 ```bash
 cp .env.example .env
-# .env bearbeiten (z. B. CORTEX_PORT, CORTEX_API_KEY)
+# .env bearbeiten
 ```
 
-API-Keys anlegen/entfernen: `./cortex-cli api-key create` bzw. `delete` (siehe [scripts/README.md](scripts/README.md)).
+**Umgebungsvariablen:**
 
-### Go-Server starten
+| Variable | Beschreibung | Standard |
+|----------|--------------|----------|
+| `CORTEX_DB_PATH` | Pfad zur SQLite-Datei | `~/.openclaw/cortex.db` |
+| `CORTEX_PORT` | Server-Port | `9123` |
+| `CORTEX_LOG_LEVEL` | Log-Level (debug/info/warn/error) | `info` |
+| `CORTEX_RATE_LIMIT` | Rate Limit (Requests/Zeitfenster) | `100` |
+| `CORTEX_RATE_LIMIT_WINDOW` | Rate Limit Zeitfenster | `1m` |
+| `CORTEX_API_KEY` | Optional: API-Key für Auth | - |
 
-```bash
-# Ins Cortex-Projektverzeichnis wechseln
-cd /path/to/cortex   # bzw. z. B. cd ~/.openclaw/workspace/projects/cortex
-go mod tidy
-make run
-# bzw. go run ./cmd/cortex-server
-```
+> **Hinweis:** Lokale Installation benötigt **keinen API-Key**. API-Key ist nur für Produktion/Multi-User-Setups.
 
-**Umgebungsvariablen** (optional):
+## 🎮 CLI-Tool (`cortex-cli`)
 
-- `CORTEX_DB_PATH` – Pfad zur SQLite-Datei (Standard: `~/.openclaw/cortex.db`)
-- `CORTEX_PORT` – Port (Standard: `9123`)
-- `CORTEX_LOG_LEVEL` – Log-Level (debug, info, warn, error, Standard: info)
-- `CORTEX_RATE_LIMIT` – Rate Limit (Requests pro Zeitfenster, Standard: 100, 0 = deaktiviert)
-- `CORTEX_RATE_LIMIT_WINDOW` – Rate Limit Zeitfenster (Standard: `1m`)
-- `CORTEX_API_KEY` – optional; nur für Produktion/Multi-User-Setups; lokale Installation benötigt keinen API-Key; wenn gesetzt, müssen Requests `Authorization: Bearer <key>` oder `X-API-Key: <key>` senden (außer `GET /health`)
+Das CLI-Tool bietet alle Funktionen ohne externe Abhängigkeiten:
 
-**Health-Check:**
+### Memories
 
 ```bash
-curl http://localhost:9123/health
-# {"status":"ok","timestamp":"2026-02-19T15:00:00Z"}
-```
+# Memory speichern
+./cortex-cli store "Text" '[{"type":"fact"}]'
 
-### CLI-Tool verwenden
+# Semantische Suche
+./cortex-cli query "Suchbegriff" 10 0.5
 
-**Go-Binary (empfohlen):** Nach `make build` steht `./cortex-cli` zur Verfügung (keine Abhängigkeit von jq/curl):
+# Memory löschen
+./cortex-cli delete <id>
 
-```bash
-./cortex-cli health
-./cortex-cli store "Der Nutzer mag Kaffee"
-./cortex-cli query "Kaffee" 10
-./cortex-cli delete 1
+# Statistiken
 ./cortex-cli stats
+```
+
+### Entities (Key-Value Fakten)
+
+```bash
+# Fact hinzufügen
+./cortex-cli entity-add carsten lieblingsfarbe blau
+
+# Entity abrufen
+./cortex-cli entity-get carsten
+```
+
+### Relations (Knowledge Graph)
+
+```bash
+# Relation anlegen
+./cortex-cli relation-add carsten typescript programmiert
+
+# Relations abrufen
+./cortex-cli relation-get carsten
+```
+
+### Agent Contexts
+
+```bash
+# Context erstellen
+./cortex-cli context-create "agent" episodic '{}'
+
+# Contexts auflisten
+./cortex-cli context-list "agent"
+
+# Context abrufen
+./cortex-cli context-get <id>
+```
+
+### Weitere Befehle
+
+```bash
+# Embeddings nachziehen
+./cortex-cli generate-embeddings 100
+
+# Performance-Benchmark
+./cortex-cli benchmark 50
+
+# API-Key verwalten
+./cortex-cli api-key create
+./cortex-cli api-key show
+./cortex-cli api-key delete
+
+# Hilfe
 ./cortex-cli help
 ```
-
 
 **Umgebungsvariablen für CLI:**
 - `CORTEX_API_URL` – API Base URL (Standard: `http://localhost:9123`)
 - `CORTEX_APP_ID` – App-ID für Multi-Tenant (Standard: `openclaw`)
 - `CORTEX_USER_ID` – User-ID für Multi-Tenant (Standard: `default`)
 
-Siehe [scripts/README.md](scripts/README.md) für weitere Details.
+## 🔗 OpenClaw-Integration
 
-### Tests ausführen
+### Skill-Installation
+
+Cortex bietet ein OpenClaw-Skill mit Auto-Recall/Capture Hooks:
 
 ```bash
-# End-to-End-Tests
-./scripts/test-e2e.sh
+# Skill ist bereits im Repository enthalten
+# Pfad: skills/cortex/
 
-# Performance-Benchmark
-./scripts/benchmark.sh 50
+# Hooks testen
+./skills/cortex/test-hooks.sh
 ```
 
-### OpenClaw-Plugin (geplant)
+### Hooks-Konfiguration
 
-Das TypeScript-Plugin für OpenClaw-Agenten ist in Entwicklung. Nach Installation:
-
-1. **Config in `~/.openclaw/openclaw.json`:**
-
-   ```json5
-   {
-     plugins: {
-       entries: {
-         cortex: {
-           enabled: true,
-           config: {
-             url: "http://localhost:9123",
-             appId: "openclaw",        // optional, Standard: "openclaw"
-             externalUserId: "default"  // optional, Standard: "default"
-           }
-         }
-       }
-     }
-   }
-   ```
-
-2. **Tools im Agent aktivieren:**
-
-   ```json5
-   {
-     agents: {
-       list: [
-         {
-           id: "main",
-           tools: {
-             allow: [
-               "cortex",          // alle Cortex-Tools
-               "store_memory",    // oder einzelne Tools
-               "query_memory",
-               "delete_memory"
-             ]
-           }
-         }
-       ]
-     }
-   }
-   ```
-
-## Embeddings & Semantische Suche
-
-Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**.
-
-### Embedding-Service-Auswahl
-
-Cortex verwendet standardmäßig den lokalen Embedding-Service:
-
-**Lokaler Embedding-Service:**
-- ✅ **384-dimensionale Embeddings** - Lokale Hash-basierte Generierung
-- ✅ **Vollständig offline** - Keine externe API nötig
-- ✅ **Keine API-Keys** - Funktioniert ohne Konfiguration
-- ✅ **Text-Support** - Optimiert für Text-Inhalte
-- ✅ **Schnell** - Keine Netzwerk-Latenz
-- ✅ **Hash-basierter Algorithmus** - Basierend auf Content-Analyse und Wort-Frequenzen
-- ✅ **Synonym-Erweiterung** - Begriffe wie Kaffee/Latte/Espresso werden verknüpft für bessere begriffliche Treffer
-
-### Automatische Embedding-Generierung
-
-Beim Speichern von Memories werden automatisch Embeddings generiert (synchron, damit Suche sofort funktioniert):
+Die Hooks werden automatisch von OpenClaw aufgerufen. Konfiguration via `.env`:
 
 ```bash
-# Memory speichern - Embedding wird automatisch generiert
+# Hooks aktivieren/deaktivieren
+CORTEX_AUTO_RECALL=true      # Default: true
+CORTEX_AUTO_CAPTURE=true     # Default: true
+
+# API-Konfiguration
+CORTEX_API_URL=http://localhost:9123
+CORTEX_APP_ID=openclaw
+CORTEX_USER_ID=default
+
+# Recall-Parameter
+CORTEX_RECALL_LIMIT=5        # Max Ergebnisse
+CORTEX_RECALL_THRESHOLD=0.5  # Ähnlichkeitsschwelle
+```
+
+### Hook-Verwendung
+
+**Recall-Hook (vor AI-Interaktion):**
+```bash
+echo '{"message": "user question"}' | ./skills/cortex/hooks.sh recall
+```
+
+**Capture-Hook (nach Konversation):**
+```bash
+cat <<EOF | ./skills/cortex/hooks.sh capture
+{
+  "content": "User: Hello\nAI: Hi there!",
+  "appId": "openclaw",
+  "userId": "user123"
+}
+EOF
+```
+
+Siehe [skills/cortex/SKILL.md](skills/cortex/SKILL.md) für vollständige Hook-Dokumentation.
+
+## 🛠️ Makefile-Targets
+
+Das Makefile bietet bequeme Befehle für Entwicklung und Deployment:
+
+### Build & Run
+
+```bash
+make build          # Baut beide Binaries
+make run            # Startet den Server
+make test           # Führt alle Tests aus
+make clean          # Entfernt Build-Artefakte
+make install        # Installiert Binaries nach /usr/local/bin
+```
+
+### Service-Management (systemd)
+
+```bash
+make service-install    # Installiert systemd Service
+make service-enable     # Aktiviert Service beim Login
+make service-start      # Startet Service
+make service-stop       # Stoppt Service
+make service-restart    # Startet Service neu
+make service-status     # Zeigt Status
+make service-logs       # Zeigt Logs (follow mode)
+make service-disable    # Deaktiviert Service
+```
+
+### Utilities
+
+```bash
+make kill            # Beendet Prozess auf Cortex-Port
+make help            # Zeigt alle verfügbaren Targets
+```
+
+## 📡 API-Endpunkte
+
+### Neutron-kompatible Seeds-API
+
+Vollständig kompatibel mit Neutron Memory API:
+
+#### `POST /seeds` – Memory speichern
+
+```bash
 curl -X POST http://localhost:9123/seeds \
   -H "Content-Type: application/json" \
   -d '{
-    "appId": "myapp",
-    "externalUserId": "user123",
-    "content": "Der Benutzer mag Kaffee und liest gerne Bücher",
-    "metadata": {"source": "chat"}
+    "appId": "openclaw",
+    "externalUserId": "user1",
+    "content": "Der Nutzer mag Kaffee mit Hafermilch",
+    "metadata": {"tags": ["preferences", "coffee"]}
   }'
 ```
 
-### Batch-Embedding-Generierung
-
-Für bestehende Memories ohne Embeddings oder nach Änderungen am Embedder (z. B. neue Synonyme):
-
-```bash
-# Generiere Embeddings für bis zu 10 Memories
-curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
-```
-
-### Semantische Suche
-
-Die Query-API nutzt automatisch semantische Suche wenn Embeddings verfügbar sind:
+#### `POST /seeds/query` – Semantische Suche
 
 ```bash
 curl -X POST http://localhost:9123/seeds/query \
   -H "Content-Type: application/json" \
   -d '{
-    "appId": "myapp",
-    "externalUserId": "user123",
-    "query": "Was mag der Benutzer trinken?",
-    "limit": 5
+    "appId": "openclaw",
+    "externalUserId": "user1",
+    "query": "Kaffee-Präferenzen",
+    "limit": 5,
+    "threshold": 0.5
   }'
 ```
 
-Die Antwort enthält `similarity`-Scores (0.0-1.0) basierend auf Cosine-Similarity.
-
-### Multimodal-Support
-
-Cortex erkennt automatisch verschiedene Content-Types:
-
-- **Text**: Standard-Text-Embeddings
-- **Bilder**: Content-Type-Erkennung für Bild-URLs und Base64-Daten
-- **Dokumente**: PDF- und Dokument-URLs werden erkannt
-
-Content-Type wird automatisch erkannt aus:
-- Metadata (`contentType` oder `content_type`)
-- Base64-encoded Bilder (`data:image/...`)
-- URLs mit Dateiendungen (`.jpg`, `.png`, `.pdf`)
-
-**Hinweis:** Der lokale Embedding-Service generiert für alle Content-Types semantische Vektoren basierend auf Text-Analyse. Für echte Bild-Embeddings wäre eine externe API oder ein lokales Modell erforderlich.
-
-## Bundles
-
-Cortex unterstützt **Bundles** zur Organisation von Memories in logische Gruppen:
-
-### Bundle erstellen
+#### `DELETE /seeds/:id` – Memory löschen
 
 ```bash
+curl -X DELETE "http://localhost:9123/seeds/1?appId=openclaw&externalUserId=user1"
+```
+
+#### `POST /seeds/generate-embeddings` – Embeddings generieren
+
+```bash
+curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10"
+```
+
+### Agent Contexts API
+
+#### `POST /agent-contexts` – Context erstellen
+
+```bash
+curl -X POST http://localhost:9123/agent-contexts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appId": "openclaw",
+    "externalUserId": "user1",
+    "agentId": "my-agent",
+    "memoryType": "episodic",
+    "payload": {"key": "value"}
+  }'
+```
+
+#### `GET /agent-contexts` – Contexts auflisten
+
+```bash
+curl "http://localhost:9123/agent-contexts?appId=openclaw&externalUserId=user1&agentId=my-agent"
+```
+
+#### `GET /agent-contexts/:id` – Context abrufen
+
+```bash
+curl "http://localhost:9123/agent-contexts/1"
+```
+
+### Cortex-API (Erweitert)
+
+#### Entities & Relations
+
+```bash
+# Entity-Fact setzen
+curl -X POST "http://localhost:9123/entities?entity=user:jarvis" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "favorite_coffee", "value": "Latte mit Hafermilch"}'
+
+# Entity abrufen
+curl "http://localhost:9123/entities?name=user:jarvis"
+
+# Relation hinzufügen
+curl -X POST http://localhost:9123/relations \
+  -H "Content-Type: application/json" \
+  -d '{"from": "user:jarvis", "to": "user:alice", "type": "friend"}'
+
+# Relations abrufen
+curl "http://localhost:9123/relations?entity=user:jarvis"
+```
+
+#### Bundles
+
+```bash
+# Bundle erstellen
 curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
   -H "Content-Type: application/json" \
   -d '{"name": "Coffee Preferences"}'
+
+# Bundles auflisten
+curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123"
 ```
 
-### Bundles auflisten
+#### Statistiken & Health
 
 ```bash
-curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+# Health-Check
+curl http://localhost:9123/health
+
+# Statistiken
+curl http://localhost:9123/stats
 ```
 
-### Memory in Bundle speichern
+Vollständige API-Dokumentation: Siehe [docs/API.md](docs/API.md)
+
+## 🔍 Semantische Suche & Embeddings
+
+Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**:
+
+### Features
+
+- ✅ **384-dimensionale Embeddings** – Lokale Hash-basierte Generierung
+- ✅ **Vollständig offline** – Keine externe API nötig
+- ✅ **Keine API-Keys** – Funktioniert ohne Konfiguration
+- ✅ **Synonym-Erweiterung** – Begriffe wie Kaffee/Latte/Espresso werden verknüpft
+- ✅ **Automatische Generierung** – Embeddings werden beim Speichern erstellt
+
+### Verwendung
 
 ```bash
-curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Lieblingskaffee: Latte mit Hafermilch",
-    "bundleId": 1
-  }'
+# Memory speichern (Embedding wird automatisch generiert)
+./cortex-cli store "Der Benutzer mag Kaffee und liest gerne Bücher"
+
+# Semantische Suche
+./cortex-cli query "Was mag der Benutzer trinken?" 5
+
+# Embeddings für bestehende Memories nachziehen
+./cortex-cli generate-embeddings 100
 ```
 
-### Memories in Bundle suchen
+Die Suche verwendet **Cosine-Similarity** und gibt `similarity`-Scores (0.0-1.0) zurück.
 
-```bash
-curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Kaffee",
-    "bundleId": 1,
-    "limit": 10
-  }'
-```
+## 📚 TypeScript SDK
 
-## TypeScript SDK
-
-Cortex bietet ein offizielles TypeScript SDK für einfache Integration:
+Cortex bietet ein offizielles TypeScript SDK:
 
 ### Installation
 
@@ -340,367 +508,11 @@ const bundle = await client.createBundle({
 
 Siehe [sdk/README.md](sdk/README.md) für vollständige Dokumentation.
 
-## API-Endpunkte
+## 🔄 Migration von Neutron
 
-### Neutron-kompatible Seeds-API
+Cortex ist eine **vollständig lokale Alternative** zu Vanar Neutron. Migration ist einfach:
 
-Vollständig kompatibel mit Neutron Memory API (gleiche Request/Response-Formate):
-
-**Unterstützt beide Parameter-Formate:**
-- **Query-Parameter** (Neutron-Style): `?appId=xxx&externalUserId=yyy`
-- **Body-Parameter** (Cortex-Style): `{ "appId": "xxx", "externalUserId": "yyy" }`
-
-#### `POST /seeds` – Memory speichern
-
-**Mit Query-Parameter (Neutron-Style):**
-```bash
-curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "metadata": {"tags": ["preferences", "coffee"]},
-    "bundleId": 1
-  }'
-```
-
-**Mit Body-Parameter (Cortex-Style):**
-```bash
-curl -X POST http://localhost:9123/seeds \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "openclaw",
-    "externalUserId": "user1",
-    "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "metadata": {"tags": ["preferences", "coffee"]},
-    "bundleId": 1
-  }'
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "message": "Memory stored successfully"
-}
-```
-
-#### `POST /seeds/query` – Memory-Suche
-
-**Mit Query-Parameter (Neutron-Style):**
-```bash
-curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Kaffee-Präferenzen",
-    "limit": 5,
-    "bundleId": 1
-  }'
-```
-
-**Mit Body-Parameter (Cortex-Style):**
-```bash
-curl -X POST http://localhost:9123/seeds/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "openclaw",
-    "externalUserId": "user1",
-    "query": "Kaffee-Präferenzen",
-    "limit": 5,
-    "bundleId": 1
-  }'
-```
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "metadata": {"tags": ["preferences", "coffee"]},
-    "created_at": "2026-02-19T15:00:00Z",
-    "similarity": 0.95
-  }
-]
-```
-
-**Hinweis:** `similarity` wird basierend auf Cosine-Similarity der Embeddings berechnet (0.0-1.0). Wenn keine Embeddings verfügbar sind, wird eine Text-basierte Heuristik verwendet.
-
-#### `POST /seeds/generate-embeddings` – Embeddings generieren
-
-```bash
-curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10" \
-```
-
-Generiert Embeddings für bestehende Memories ohne Embedding. `batchSize` bestimmt, wie viele Memories pro Aufruf verarbeitet werden (Standard: 10, Max: 100).
-
-**Response:**
-```json
-{
-  "message": "Embeddings generation started"
-}
-```
-
-#### `DELETE /seeds/:id` – Memory löschen
-
-```bash
-curl -X DELETE "http://localhost:9123/seeds/1?appId=openclaw&externalUserId=user1"
-```
-
-**Response:**
-```json
-{
-  "message": "Memory deleted successfully",
-  "id": 1
-}
-```
-
-### Cortex-API (Original)
-
-Zusätzliche Endpunkte für erweiterte Features:
-
-#### `POST /remember` – Erinnerung speichern
-
-```bash
-curl -X POST http://localhost:9123/remember \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "type": "semantic",
-    "entity": "user:jarvis",
-    "tags": "preference,coffee",
-    "importance": 7
-  }'
-```
-
-#### `GET /recall` – Erinnerungen abrufen
-
-```bash
-curl "http://localhost:9123/recall?q=Kaffee&limit=5"
-```
-
-#### `POST /entities?entity=...` – Fakt setzen
-
-```bash
-curl -X POST "http://localhost:9123/entities?entity=user:jarvis" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "key": "favorite_coffee",
-    "value": "Latte mit Hafermilch"
-  }'
-```
-
-#### `GET /entities?name=...` – Entity abrufen
-
-```bash
-curl "http://localhost:9123/entities?name=user:jarvis"
-```
-
-#### `POST /relations` – Relation hinzufügen
-
-```bash
-curl -X POST http://localhost:9123/relations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "from": "user:jarvis",
-    "to": "user:alice",
-    "type": "friend"
-  }'
-```
-
-#### `GET /stats` – Statistiken
-
-```bash
-curl http://localhost:9123/stats
-```
-
-**Response:**
-```json
-{
-  "memories": 42,
-  "entities": 5,
-  "relations": 12
-}
-```
-
-## Bundles API
-
-### `POST /bundles` – Bundle erstellen
-
-```bash
-curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Coffee Preferences"}'
-```
-
-### `GET /bundles` – Bundles auflisten
-
-```bash
-curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-```
-
-### `GET /bundles/:id` – Bundle abrufen
-
-```bash
-curl "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-```
-
-### `DELETE /bundles/:id` – Bundle löschen
-
-```bash
-curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
-```
-
-**Hinweis:** Beim Löschen eines Bundles bleiben die Memories erhalten, `bundleId` wird auf `NULL` gesetzt.
-
-## Export/Import
-
-Cortex unterstützt **Export und Import** von Daten:
-
-### Daten exportieren
-
-```bash
-curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
-  -o cortex-export.json
-```
-
-### Daten importieren
-
-```bash
-curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
-  -H "Content-Type: application/json" \
-  -d @cortex-export.json
-```
-
-## Backup/Restore
-
-Cortex unterstützt **Backup und Restore** der Datenbank:
-
-### Backup erstellen
-
-```bash
-curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
-```
-
-### Restore durchführen
-
-```bash
-curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
-```
-
-**⚠️ WICHTIG:** Nach dem Restore muss der Server neu gestartet werden!
-
-## Analytics
-
-Cortex bietet **Analytics-Endpunkte** für Dashboard-Daten:
-
-### Analytics abrufen
-
-```bash
-# Tenant-spezifische Analytics
-curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=30" \
-
-# Globale Analytics
-curl "http://localhost:9123/analytics?days=30" \
-```
-
-**Verfügbare Metriken:**
-- Gesamtanzahl Memories, Bundles, Webhooks
-- Memories mit Embeddings
-- Aufschlüsselung nach Type und Bundle
-- Recent Activity (letzte 50 Aktivitäten)
-- Storage-Statistiken
-
-## Agent-Tools (geplant)
-
-Das zukünftige Plugin wird folgende Tools für OpenClaw-Agenten registrieren:
-
-### Neutron-kompatible Tools
-
-- **`store_memory`** – Memory speichern (Multi-Tenant)
-- **`query_memory`** – Memory-Suche durchführen
-- **`delete_memory`** – Memory löschen (tenant-sicher)
-- **`create_bundle`** – Bundle erstellen
-- **`list_bundles`** – Bundles auflisten
-- **`delete_bundle`** – Bundle löschen
-- **`health_check`** – API-Status prüfen
-
-### Cortex-Tools
-
-- **`cortex_remember`** – Erinnerung speichern
-- **`cortex_recall`** – Erinnerungen abrufen
-- **`cortex_fact_set`** – Fakt für Entity setzen
-- **`cortex_fact_get`** – Fakten für Entity abrufen
-- **`cortex_relation_add`** – Relation hinzufügen
-- **`cortex_stats`** – Statistiken abrufen
-
-**Hinweis:** Bis das Plugin verfügbar ist, können alle Operationen über die REST-API, das TypeScript SDK oder das CLI-Tool (`cortex-cli`) verwendet werden.
-
-## Datenmodell
-
-### Memories (Seeds)
-
-- `id` – Eindeutige ID
-- `content` – Textinhalt
-- `type` – Typ (z. B. "semantic", "episodic")
-- `entity` – Optionale Entity-Zuordnung
-- `tags` – Kommagetrennte Tags
-- `importance` – Wichtigkeit (1–10)
-- `app_id` – Multi-Tenant: App-ID
-- `external_user_id` – Multi-Tenant: User-ID
-- `bundle_id` – Optionale Bundle-Zuordnung
-- `metadata` – JSON-Metadaten (als Text)
-- `content_type` – Content-Type (z. B. "text/plain")
-- `created_at` – Zeitstempel
-
-### Entities
-
-- `id` – Eindeutige ID
-- `name` – Entity-Name (unique)
-- `data` – JSON-Objekt mit Fakten (als Text)
-- `created_at`, `updated_at` – Zeitstempel
-
-### Relations
-
-- `id` – Eindeutige ID
-- `from_entity` – Quell-Entity
-- `to_entity` – Ziel-Entity
-- `type` – Relationstyp (z.B. "friend", "owns")
-- `valid_from`, `valid_to` – Optionale Gültigkeitszeiträume
-- `created_at` – Zeitstempel
-
-## Cortex als Neutron-Alternative
-
-Cortex ist eine **vollständig lokale, kostenlose Alternative** zur Neutron Memory API von Vanar. Während Neutron eine Cloud-basierte SaaS-Lösung ist, bietet Cortex dieselben Features als Self-hosted Lösung ohne externe Abhängigkeiten.
-
-### Kern-Features (Neutron-kompatibel)
-
-- ✅ **Persistent Semantic Memory**: Cross-Session Context, Memory überlebt Neustarts
-- ✅ **Seeds API**: Identische Endpunkte (`/seeds`, `/seeds/query`, `/seeds/:id`)
-- ✅ **Semantic Search**: Vector-Embeddings mit Cosine-Similarity (<200ms für typische Use-Cases)
-- ✅ **Multi-Tenant Support**: Sichere Isolation durch `appId` + `externalUserId`
-- ✅ **REST API + TypeScript SDK**: Production-ready, vollständig kompatibel
-- ✅ **Bundles**: Organisation von Memories in logische Gruppen
-- ✅ **Cross-Platform Continuity**: Gemeinsames Memory über Discord/Slack/WhatsApp/Web
-
-### Vorteile von Cortex
-
-- 🏠 **Lokal**: Keine Cloud-Abhängigkeit, vollständig Self-hosted
-- 💰 **Kostenlos**: Keine laufenden API-Kosten
-- 🔒 **Privacy**: 100% lokale Datenhaltung
-- ⚙️ **Kontrolle**: Volle Kontrolle über Infrastruktur und Daten
-- 🚀 **Schnell**: Keine Netzwerk-Latenz, lokale Performance
-
-### Dokumentation
-
-- **[docs/CORTEX_NEUTRON_ALTERNATIVE.md](docs/CORTEX_NEUTRON_ALTERNATIVE.md)** – Feature-für-Feature Vergleich mit Neutron-Artikel-Anforderungen
-- **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** – Cross-Platform Integration Guide (Discord/Slack/WhatsApp/Web)
-- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** – Performance-Benchmarks und Optimierungen
-- **[docs/CRYPTO_EVALUATION.md](docs/CRYPTO_EVALUATION.md)** – Evaluierung kryptographischer Verifizierung
-- **[docs/VERGLEICH_NEUTRON.md](docs/VERGLEICH_NEUTRON.md)** – Detaillierter Feature-Vergleich mit Neutron
-
-### Migration von Neutron
-
-**Minimale Code-Änderungen:**
+### Code-Änderungen
 
 ```typescript
 // Vorher (Neutron)
@@ -721,138 +533,109 @@ await client.storeMemory({...});
 await client.queryMemory({...});
 ```
 
-**Siehe [docs/CORTEX_NEUTRON_ALTERNATIVE.md](docs/CORTEX_NEUTRON_ALTERNATIVE.md) für vollständige Migrations-Anleitung.**
+### Vorteile
 
-## Neutron-Kompatibilität
+- 🏠 **Lokal**: Keine Cloud-Abhängigkeit
+- 💰 **Kostenlos**: Keine API-Kosten
+- 🔒 **Privacy**: 100% lokale Datenhaltung
+- ⚡ **Schnell**: Keine Netzwerk-Latenz
 
-Cortex bietet eine **vollständig neutron-kompatible Seeds-API** mit semantischer Suche:
+Siehe [docs/VERGLEICH_OPENCLAW_GUIDE.md](docs/VERGLEICH_OPENCLAW_GUIDE.md) für detaillierten Vergleich.
 
-- ✅ Gleiche Endpunkte (`/seeds`, `/seeds/query`, `/seeds/:id`)
-- ✅ Gleiche Request/Response-Formate
-- ✅ Multi-Tenant-Support (`appId`, `externalUserId`)
-- ✅ **Semantische Suche**: Vector-Embeddings mit Cosine-Similarity
-- ✅ **Lokale Embeddings**: 384-dimensionale Vektoren, vollständig offline
+## 🏗️ Architektur
 
-**Unterschiede zu Neutron:**
+### Komponenten
 
-- 🏠 **Deployment**: Lokal (Self-hosted) statt Cloud (SaaS)
-- 💰 **Kosten**: Kostenlos statt Pay-per-use
-- 🔒 **Privacy**: 100% lokale Datenhaltung statt Cloud-Daten
-- 📊 **Datenbank**: SQLite statt PostgreSQL + pgvector
-- ⚡ **Skalierung**: Ideal für <10,000 Memories, Neutron für Enterprise-Skalierung
+1. **cortex-server** – Go-Backend mit SQLite und HTTP-API
+2. **cortex-cli** – CLI-Tool für alle Operationen
+3. **OpenClaw Skill** – Hooks für Auto-Recall/Capture
+4. **TypeScript SDK** – Client-Library für Integration
 
-Die bestehende Cortex-API (`/remember`, `/recall`, etc.) bleibt für Rückwärtskompatibilität erhalten.
+### Code-Struktur
 
-## Entwicklung
+```
+cortex/
+├── cmd/
+│   ├── cortex-server/    # Server-Binary
+│   └── cortex-cli/        # CLI-Binary
+├── internal/
+│   ├── api/              # HTTP-Handler
+│   ├── store/            # Datenbank-Operationen
+│   ├── models/           # Datenmodelle
+│   ├── embeddings/       # Embedding-Generierung
+│   ├── helpers/          # Utility-Funktionen
+│   └── middleware/       # HTTP-Middleware
+├── skills/
+│   └── cortex/           # OpenClaw Skill
+│       ├── hooks.sh      # Auto-Recall/Capture Hooks
+│       └── SKILL.md      # Skill-Dokumentation
+├── sdk/                   # TypeScript SDK
+└── docs/                  # Dokumentation
+```
 
-### Dependencies
+### Datenbank
 
-**Go:**
-- `github.com/glebarez/sqlite` – Pure-Go SQLite-Treiber
-- `gorm.io/gorm` – ORM
+- **SQLite** (`~/.openclaw/cortex.db`)
+- **Pure-Go** (kein cgo)
+- **Automatische Migrationen** via GORM
 
-**TypeScript (Plugin):**
-- `@sinclair/typebox` – Schema-Validierung
-- `@types/node` – Node.js-Typen
+## 📖 Dokumentation
+
+- **[skills/cortex/SKILL.md](skills/cortex/SKILL.md)** – Vollständige Skill-Dokumentation
+- **[docs/VERGLEICH_OPENCLAW_GUIDE.md](docs/VERGLEICH_OPENCLAW_GUIDE.md)** – Vergleich mit OpenClaw Neutron Guide
+- **[docs/CORTEX_NEUTRON_ALTERNATIVE.md](docs/CORTEX_NEUTRON_ALTERNATIVE.md)** – Feature-Vergleich mit Neutron
+- **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** – Cross-Platform Integration Guide
+- **[docs/API.md](docs/API.md)** – Vollständige API-Dokumentation
+- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** – Performance-Benchmarks
+
+## 🧪 Entwicklung
 
 ### Tests
 
-Das Projekt enthält umfassende Unit-Tests:
-
 ```bash
 # Alle Tests ausführen
-go test ./...
+make test
 
-# Mit Verbose-Output
-go test -v ./...
-
-# Mit Coverage-Report
+# Mit Coverage
 go test -cover ./...
-```
 
-### Authentifizierung
-
-Es gibt keine API-Key-Authentifizierung; alle Endpunkte sind ohne Auth erreichbar (typisch für lokale Self-hosted-Nutzung).
-
-### Logging
-
-Cortex verwendet strukturiertes Logging (log/slog):
-
-- **Log-Level:** Über `CORTEX_LOG_LEVEL` konfigurierbar (debug, info, warn, error)
-- **Strukturiert:** Alle Logs enthalten strukturierte Felder für besseres Parsing
-- **Format:** Text-Format (kann zu JSON geändert werden)
-
-**Beispiel-Logs:**
-```
-level=INFO msg="cortex server starting" addr=:9123 db=/path/to/cortex.db
-level=DEBUG msg="request" path=/seeds method=POST
-level=ERROR msg="remember insert error" error="..."
+# Spezifische Tests
+go test -v ./internal/store/...
 ```
 
 ### Build
 
-Es werden zwei Binaries gebaut: **cortex-server** (HTTP-Server) und **cortex-cli** (CLI-Client).
-
 ```bash
-# Beide Binaries bauen
+# Development
 make build
-# bzw. make build-server und make build-cli einzeln
-
-# Server starten
 make run
-# bzw. ./cortex-server oder go run ./cmd/cortex-server
 
-# CLI verwenden (nach make build)
-./cortex-cli health
-./cortex-cli store "Inhalt"
-
-# Tests ausführen
-go test ./...
-
-# Tests mit Coverage
-go test -cover ./...
+# Production
+go build -ldflags="-s -w" -o cortex-server ./cmd/cortex-server
+go build -ldflags="-s -w" -o cortex-cli ./cmd/cortex-cli
 ```
 
 ### Docker
 
 ```bash
-# Docker Image bauen
-make docker-build
-# bzw. docker build -t cortex .
+# Image bauen
+docker build -t cortex .
 
-# Mit docker-compose starten (Port 9123)
-make docker-up
-# bzw. docker compose up -d
+# Mit docker-compose
+docker-compose up -d
 ```
 
-**Hinweis:** Wenn Port 9123 bereits belegt ist (z. B. durch einen lokal laufenden Server), zuerst den Prozess beenden (`pkill -f cortex-server`) oder in `docker-compose.yml` einen anderen Host-Port verwenden (z. B. `"9124:9123"`).
-
-### Scripts verwenden
-
-Die Bash-Scripts benötigen:
-- `curl` – HTTP-Requests
-- `jq` – JSON-Verarbeitung (optional, aber empfohlen)
-
-**Installation:**
-```bash
-# Ubuntu/Debian
-sudo apt-get install curl jq
-
-# macOS
-brew install curl jq
-```
-
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Port bereits belegt
 
-Wenn **lokal** ein anderer Port genutzt werden soll:
-
 ```bash
-CORTEX_PORT=9124 go run ./...
-```
+# Prozess auf Port finden und beenden
+make kill
 
-Wenn **Docker** den Port 9123 nicht binden kann (`address already in use`): Lokalen Cortex beenden (`pkill -f cortex`) oder in `docker-compose.yml` z. B. `ports: - "9124:9123"` eintragen und Clients auf `http://localhost:9124` zeigen.
+# Oder anderen Port verwenden
+CORTEX_PORT=9124 make run
+```
 
 ### Datenbank-Fehler
 
@@ -867,23 +650,28 @@ rm ~/.openclaw/cortex.db
 ### API nicht erreichbar
 
 ```bash
-# Prüfe ob Server läuft
-curl http://localhost:9123/health
+# Health-Check
+./cortex-cli health
 
-# Prüfe Logs
-# (Server-Logs werden auf stdout ausgegeben)
+# Server-Logs prüfen
+make service-logs
 ```
 
-### Script-Fehler
+### Hooks funktionieren nicht
 
 ```bash
-# Prüfe Dependencies
-command -v curl && command -v jq
+# Hooks testen
+./skills/cortex/test-hooks.sh
 
-# Prüfe API-URL
+# Env-Variablen prüfen
+echo $CORTEX_AUTO_RECALL
 echo $CORTEX_API_URL
 ```
 
-## Lizenz
+## 📄 Lizenz
 
-MIT (oder wie im Workspace definiert)
+MIT License
+
+## 🙏 Credits
+
+Cortex ist eine lokale Alternative zu [Vanar Neutron](https://openclaw.vanarchain.com/guide-openclaw) und bietet vollständige Kompatibilität ohne Cloud-Abhängigkeit.
