@@ -15,7 +15,15 @@ export function Memories() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [appId, externalUserId])
+  useEffect(() => {
+    let cancelled = false
+    queueMicrotask(() => { if (!cancelled) setLoading(true) })
+    api.listSeeds(appId, externalUserId)
+      .then((data) => { if (!cancelled) setList(data) })
+      .catch((e) => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [appId, externalUserId])
 
   const handleDelete = (id: number) => {
     if (!confirm('Memory löschen?')) return
