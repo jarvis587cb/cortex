@@ -1,16 +1,27 @@
-.PHONY: help build run test clean install install-binaries kill copy-skill benchmark benchmark-api benchmark-embeddings _benchmark-embeddings-args service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
+# Variablen (überschreibbar: make build BENCHMARK_COUNT=10)
+BINARIES        := cortex-server cortex-cli
+SERVICE_NAME    := cortex-server.service
+USER_UNIT_DIR   := ~/.config/systemd/user
+BENCHMARK_COUNT := 50
+BENCHMARK_EMBED_COUNT := 100
+
+.PHONY: help build build-go build-dashboard run dev test clean install install-binaries kill copy-skill
+.PHONY: benchmark benchmark-api benchmark-embeddings _benchmark-embeddings-args
+.PHONY: service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
 
 help: ## Zeigt diese Hilfe an
 	@echo "Cortex Makefile"
 	@echo ""
 	@echo "Verfügbare Targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-22s %s\n", $$1, $$2}'
 
-build: build-dashboard ## Baut Dashboard und beide Binaries (cortex-server, cortex-cli)
-	go build -o cortex-server ./cmd/cortex-server && \
+build: build-dashboard build-go ## Baut Dashboard und beide Binaries (cortex-server, cortex-cli)
+
+build-go: ## Baut nur die Go-Binaries (ohne Dashboard – für schnelle Iteration)
+	go build -o cortex-server ./cmd/cortex-server
 	go build -o cortex-cli ./cmd/cortex-cli
 
-build-dashboard: ## Baut das React-Dashboard nach internal/dashboard/dist (für Embed). Danach make build für Server mit Dashboard.
+build-dashboard: ## Baut das React-Dashboard nach internal/dashboard/dist (für Embed).
 	@cd dashboard && npm ci && npm run build
 
 run: ## Startet den Server (mit eingebettetem Dashboard unter /dashboard/)
@@ -28,9 +39,9 @@ test: ## Führt alle Tests aus
 install-binaries: build ## Installiert Binaries nach /usr/local/bin
 	@echo "Installiere Binaries nach /usr/local/bin..." && \
 	if [ -w /usr/local/bin ]; then \
-		cp cortex-server cortex-cli /usr/local/bin/ && echo "✓ Binaries installiert"; \
+		cp $(BINARIES) /usr/local/bin/ && echo "✓ Binaries installiert"; \
 	else \
-		sudo cp cortex-server cortex-cli /usr/local/bin/ && echo "✓ Binaries installiert (mit sudo)"; \
+		sudo cp $(BINARIES) /usr/local/bin/ && echo "✓ Binaries installiert (mit sudo)"; \
 	fi
 
 install: install-binaries service-install copy-skill ## Vollständige Installation: Binaries, Service und Skills
@@ -42,7 +53,7 @@ install: install-binaries service-install copy-skill ## Vollständige Installati
 	echo "  make service-start    # Service jetzt starten"
 
 clean: ## Entfernt Build-Artefakte
-	rm -f cortex-server cortex-cli coverage.out coverage.html
+	rm -f $(BINARIES) coverage.out coverage.html
 
 kill: ## Beendet den Prozess auf dem Cortex-Port (Standard: 9123)
 	@PORT=$$([ -f .env ] && grep -E '^CORTEX_PORT=' .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo "$${CORTEX_PORT:-9123}"); \
@@ -74,53 +85,47 @@ benchmark-api: build ## Führt API-Benchmark aus (benötigt laufenden Server). U
 		echo "Starte Server mit: make run (in separatem Terminal) oder make service-start"; \
 		exit 1; \
 	}
-	@./cortex-cli benchmark $(or $(COUNT),50)
+	@./cortex-cli benchmark $(or $(COUNT),$(BENCHMARK_COUNT))
 
 # Helper target to capture positional arguments
 _benchmark-embeddings-args:
 	@:
 
-benchmark-embeddings: build _benchmark-embeddings-args ## Führt Embedding-Benchmark aus. Usage: make benchmark-embeddings [COUNT] [SERVICE] oder make benchmark-embeddings COUNT=100 SERVICE=both
+benchmark-embeddings: build _benchmark-embeddings-args ## Führt Embedding-Benchmark aus. Usage: make benchmark-embeddings [COUNT] [SERVICE]
 	@ARGS="$(filter-out benchmark-embeddings _benchmark-embeddings-args,$(MAKECMDGOALS))"; \
-	COUNT=$$([ -n "$$ARGS" ] && echo $$ARGS | awk '{print $$1}' || echo "$(or $(COUNT),100)"); \
+	COUNT=$$([ -n "$$ARGS" ] && echo $$ARGS | awk '{print $$1}' || echo "$(or $(COUNT),$(BENCHMARK_EMBED_COUNT))"); \
 	SERVICE=$$([ -n "$$ARGS" ] && echo $$ARGS | awk '{print $$2}' || echo "$(or $(SERVICE),both)"); \
 	./scripts/benchmark-embeddings.sh $${COUNT} $${SERVICE}
 
 service-install: build ## Installiert systemd User Service-Datei und lädt Konfiguration neu
-	@mkdir -p ~/.config/systemd/user && \
-	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service && \
+	@mkdir -p $(USER_UNIT_DIR) && \
+	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > $(USER_UNIT_DIR)/$(SERVICE_NAME) && \
 	$(MAKE) service-reload && \
-	echo "✓ Service-Datei installiert"
+	echo "✓ Service-Datei installiert ($(USER_UNIT_DIR)/$(SERVICE_NAME))"
 
 service-reload: ## Lädt systemd User-Konfiguration neu
-	@systemctl --user daemon-reload && \
-	echo "✓ systemd User-Konfiguration neu geladen"
+	@systemctl --user daemon-reload && echo "✓ systemd User-Konfiguration neu geladen"
 
 service-enable: service-reload ## Aktiviert den Service beim Login
-	@systemctl --user enable cortex-server.service && \
-	echo "✓ Service aktiviert"
+	@systemctl --user enable $(SERVICE_NAME) && echo "✓ Service aktiviert"
 
 service-disable: service-reload ## Deaktiviert den Service
-	@systemctl --user disable cortex-server.service && \
-	echo "✓ Service deaktiviert"
+	@systemctl --user disable $(SERVICE_NAME) && echo "✓ Service deaktiviert"
 
 service-start: service-reload ## Startet den Service
-	@systemctl --user start cortex-server.service && \
-	echo "✓ Service gestartet"
+	@systemctl --user start $(SERVICE_NAME) && echo "✓ Service gestartet"
 
 service-stop: service-reload ## Stoppt den Service
-	@systemctl --user stop cortex-server.service && \
-	echo "✓ Service gestoppt"
+	@systemctl --user stop $(SERVICE_NAME) && echo "✓ Service gestoppt"
 
 service-restart: service-reload ## Startet den Service neu
-	@systemctl --user restart cortex-server.service && \
-	echo "✓ Service neu gestartet"
+	@systemctl --user restart $(SERVICE_NAME) && echo "✓ Service neu gestartet"
 
-service-status: service-reload ## Zeigt den Status des Services
-	systemctl --user status cortex-server.service
+service-status: ## Zeigt den Status des Services (ohne daemon-reload)
+	@systemctl --user status $(SERVICE_NAME)
 
 service-logs: ## Zeigt die Logs des Services (follow mode)
-	journalctl --user -u cortex-server.service -f
+	@journalctl --user -u $(SERVICE_NAME) -f
 
 # Catch-all für Positionsargumente bei benchmark-embeddings
 %:
