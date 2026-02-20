@@ -183,34 +183,34 @@ Flags (überschreiben Env):
   -user-id <id> - User-ID
 
 Beispiele:
-  %s health
-  %s store "Der Nutzer mag Kaffee"
-  %s query "Kaffee" 10 0.2
-  %s query "Kaffee" 10 0.5 "1,2,3"
-  %s query "Kaffee" 10 0.5 "" '{"typ":"persönlich"}'
-  %s delete 1
-  %s stats
-  %s entity-add carsten lieblingsfarbe blau
-  %s entity-get carsten
-  %s relation-add carsten typescript programmiert
-  %s relation-get carsten
-  %s context-create "my-agent" episodic '{}'
-  %s context-list "my-agent"
-  %s context-get 1
-  %s generate-embeddings 100
-  %s benchmark 50
-  %s benchmark-embeddings 100 local
-  %s api-key create
-  %s api-key show
-  %s bundle-create "Coffee Preferences"
-  %s bundle-list
-  %s export backup.json
-  %s import backup.json true
-  %s backup /path/to/backup.db
-  %s restore /path/to/backup.db
-  %s analytics 7
-  %s seeds-list 20 0
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+  %[1]s health
+  %[1]s store "Der Nutzer mag Kaffee"
+  %[1]s query "Kaffee" 10 0.2
+  %[1]s query "Kaffee" 10 0.5 "1,2,3"
+  %[1]s query "Kaffee" 10 0.5 "" '{"typ":"persönlich"}'
+  %[1]s delete 1
+  %[1]s stats
+  %[1]s entity-add carsten lieblingsfarbe blau
+  %[1]s entity-get carsten
+  %[1]s relation-add carsten typescript programmiert
+  %[1]s relation-get carsten
+  %[1]s context-create "my-agent" episodic '{}'
+  %[1]s context-list "my-agent"
+  %[1]s context-get 1
+  %[1]s generate-embeddings 100
+  %[1]s benchmark 50
+  %[1]s benchmark-embeddings 100 local
+  %[1]s api-key create
+  %[1]s api-key show
+  %[1]s bundle-create "Coffee Preferences"
+  %[1]s bundle-list
+  %[1]s export backup.json
+  %[1]s import backup.json true
+  %[1]s backup /path/to/backup.db
+  %[1]s restore /path/to/backup.db
+  %[1]s analytics 7
+  %[1]s seeds-list 20 0
+`, prog, defaultBaseURL, defaultAppID, defaultUserID)
 }
 
 type cliClient struct {
