@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -779,8 +781,18 @@ func (h *Handlers) HandleImport(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HandleBackup(w http.ResponseWriter, r *http.Request) {
 	backupPath := helpers.GetQueryParam(r, "path")
 	if backupPath == "" {
-		// Default backup path
-		backupPath = fmt.Sprintf("cortex-backup-%s.db", time.Now().Format("20060102-150405"))
+		// Default: Speichern im Backup-Unterordner neben der Datenbank (z. B. ~/.openclaw/backups/)
+		dbPath, err := h.store.GetDatabasePath()
+		if err != nil {
+			helpers.HandleInternalErrorSlog(w, "get database path error", "error", err)
+			return
+		}
+		backupDir := filepath.Join(filepath.Dir(dbPath), "backups")
+		if err := os.MkdirAll(backupDir, 0o755); err != nil {
+			helpers.HandleInternalErrorSlog(w, "create backup dir error", "error", err, "dir", backupDir)
+			return
+		}
+		backupPath = filepath.Join(backupDir, fmt.Sprintf("cortex-backup-%s.db", time.Now().Format("20060102-150405")))
 	} else {
 		if err := helpers.ValidateBackupPath(backupPath); err != nil {
 			http.Error(w, "invalid path: "+err.Error(), http.StatusBadRequest)
@@ -816,6 +828,8 @@ func (h *Handlers) HandleRestore(w http.ResponseWriter, r *http.Request) {
 		helpers.HandleInternalErrorSlog(w, "get database path error", "error", err)
 		return
 	}
+	// Relative Pfade werden relativ zum Datenbankverzeichnis aufgelöst (wie bei Backup)
+	backupPath = filepath.Join(filepath.Dir(currentPath), backupPath)
 
 	// Check if backup file exists
 	if !h.store.FileExists(backupPath) {
