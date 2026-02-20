@@ -7,7 +7,7 @@ help: ## Zeigt diese Hilfe an
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
 build: ## Baut beide Binaries (cortex-server, cortex-cli)
-	go build -o cortex-server ./cmd/cortex-server
+	go build -o cortex-server ./cmd/cortex-server && \
 	go build -o cortex-cli ./cmd/cortex-cli
 
 run: ## Startet den Server
@@ -16,45 +16,59 @@ run: ## Startet den Server
 test: ## Führt alle Tests aus
 	go test -v ./...
 
-install: build ## Installiert beide Binaries nach /usr/local/bin
-	sudo cp cortex-server cortex-cli /usr/local/bin/
+install: build ## Vollständige Installation: Binaries, Service und Skills
+	@echo "=== Installiere Cortex ===" && \
+	echo "" && \
+	echo "1. Installiere Binaries nach /usr/local/bin..." && \
+	if [ -w /usr/local/bin ]; then \
+		cp cortex-server cortex-cli /usr/local/bin/ && echo "   ✓ Binaries installiert"; \
+	else \
+		sudo cp cortex-server cortex-cli /usr/local/bin/ && echo "   ✓ Binaries installiert (mit sudo)"; \
+	fi && \
+	echo "" && \
+	echo "2. Installiere systemd Service..." && \
+	mkdir -p ~/.config/systemd/user && \
+	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service && \
+	systemctl --user daemon-reload && \
+	echo "   ✓ Service installiert und Konfiguration neu geladen" && \
+	echo "" && \
+	echo "3. Kopiere Skills nach ~/.openclaw/workspace/skills..." && \
+	mkdir -p ~/.openclaw/workspace/skills && \
+	cp -R skills/cortex/ ~/.openclaw/workspace/skills && \
+	echo "   ✓ Skills kopiert" && \
+	echo "" && \
+	echo "=== Installation abgeschlossen ===" && \
+	echo "" && \
+	echo "Nächste Schritte:" && \
+	echo "  make service-enable   # Service beim Login aktivieren" && \
+	echo "  make service-start    # Service jetzt starten"
 
 clean: ## Entfernt Build-Artefakte
 	rm -f cortex-server cortex-cli coverage.out coverage.html
 
 kill: ## Beendet den Prozess auf dem Cortex-Port (Standard: 9123)
-	@if [ -f .env ]; then \
-		PORT=$$(grep -E '^CORTEX_PORT=' .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo "9123"); \
-	else \
-		PORT=$${CORTEX_PORT:-9123}; \
-	fi; \
+	@PORT=$$([ -f .env ] && grep -E '^CORTEX_PORT=' .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo "$${CORTEX_PORT:-9123}"); \
 	echo "Suche Prozess auf Port $$PORT..."; \
-	PID=$$(lsof -ti:$$PORT 2>/dev/null); \
-	if [ -z "$$PID" ]; then \
-		PID=$$(ss -ltnp 2>/dev/null | grep ":$$PORT " | awk '{print $$6}' | cut -d',' -f2 | cut -d'=' -f2 | head -1); \
-	fi; \
-	if [ -z "$$PID" ]; then \
-		PID=$$(fuser $$PORT/tcp 2>/dev/null | awk '{print $$1}' | head -1); \
-	fi; \
+	PID=$$(lsof -ti:$$PORT 2>/dev/null || ss -ltnp 2>/dev/null | grep ":$$PORT " | awk '{print $$6}' | cut -d',' -f2 | cut -d'=' -f2 | head -1); \
 	if [ -z "$$PID" ]; then \
 		echo "Kein Prozess auf Port $$PORT gefunden"; \
 		exit 0; \
 	fi; \
-	echo "Beende Prozess $$PID auf Port $$PORT..."; \
-	kill -9 $$PID 2>/dev/null || kill $$PID 2>/dev/null || (echo "Fehler beim Beenden des Prozesses"; exit 1); \
-	echo "Prozess $$PID beendet"
+	echo "Beende Prozess $$PID..."; \
+	kill -9 $$PID 2>/dev/null || kill $$PID 2>/dev/null; \
+	echo "✓ Prozess $$PID beendet"
 
 copy-skill: ## Kopiert das Cortex-Skill nach ~/.openclaw/workspace/skills
-	@mkdir -p ~/.openclaw/workspace/skills
-	cp -R skills/cortex/ ~/.openclaw/workspace/skills
-	@echo "Skill kopiert nach ~/.openclaw/workspace/skills/cortex"
+	@mkdir -p ~/.openclaw/workspace/skills && \
+	cp -R skills/cortex/ ~/.openclaw/workspace/skills && \
+	echo "✓ Skill kopiert nach ~/.openclaw/workspace/skills/cortex"
 
 benchmark: build ## Führt alle Benchmarks aus (API + Embeddings)
-	@echo "=== API Benchmark ==="
-	@$(MAKE) benchmark-api
-	@echo ""
-	@echo "=== Embeddings Benchmark ==="
-	@$(MAKE) benchmark-embeddings
+	@echo "=== API Benchmark ===" && \
+	$(MAKE) benchmark-api && \
+	echo "" && \
+	echo "=== Embeddings Benchmark ===" && \
+	$(MAKE) benchmark-embeddings
 
 benchmark-api: build ## Führt API-Benchmark aus (benötigt laufenden Server). Usage: make benchmark-api COUNT=50
 	@if ! curl -s http://localhost:9123/health > /dev/null 2>&1; then \
@@ -70,43 +84,39 @@ _benchmark-embeddings-args:
 
 benchmark-embeddings: build _benchmark-embeddings-args ## Führt Embedding-Benchmark aus. Usage: make benchmark-embeddings [COUNT] [SERVICE] oder make benchmark-embeddings COUNT=100 SERVICE=both
 	@ARGS="$(filter-out benchmark-embeddings _benchmark-embeddings-args,$(MAKECMDGOALS))"; \
-	if [ -n "$$ARGS" ]; then \
-		COUNT=$$(echo $$ARGS | awk '{print $$1}'); \
-		SERVICE=$$(echo $$ARGS | awk '{print $$2}'); \
-		./scripts/benchmark-embeddings.sh $${COUNT:-100} $${SERVICE:-both}; \
-	else \
-		./scripts/benchmark-embeddings.sh $(or $(COUNT),100) $(or $(SERVICE),both); \
-	fi
+	COUNT=$$([ -n "$$ARGS" ] && echo $$ARGS | awk '{print $$1}' || echo "$(or $(COUNT),100)"); \
+	SERVICE=$$([ -n "$$ARGS" ] && echo $$ARGS | awk '{print $$2}' || echo "$(or $(SERVICE),both)"); \
+	./scripts/benchmark-embeddings.sh $${COUNT} $${SERVICE}
 
-service-install: build ## Installiert systemd User Service-Datei
-	@mkdir -p ~/.config/systemd/user
-	@sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service
-	@echo "Service-Datei installiert nach ~/.config/systemd/user/cortex-server.service"
-	@$(MAKE) service-reload
+service-install: build ## Installiert systemd User Service-Datei und lädt Konfiguration neu
+	@mkdir -p ~/.config/systemd/user && \
+	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service && \
+	systemctl --user daemon-reload && \
+	echo "✓ Service-Datei installiert und Konfiguration neu geladen"
 
 service-reload: ## Lädt systemd User-Konfiguration neu
-	systemctl --user daemon-reload
-	@echo "systemd User-Konfiguration neu geladen"
+	@systemctl --user daemon-reload && \
+	echo "✓ systemd User-Konfiguration neu geladen"
 
 service-enable: service-reload ## Aktiviert den Service beim Login
-	systemctl --user enable cortex-server.service
-	@echo "Service aktiviert"
+	@systemctl --user enable cortex-server.service && \
+	echo "✓ Service aktiviert"
 
 service-disable: service-reload ## Deaktiviert den Service
-	systemctl --user disable cortex-server.service
-	@echo "Service deaktiviert"
+	@systemctl --user disable cortex-server.service && \
+	echo "✓ Service deaktiviert"
 
 service-start: service-reload ## Startet den Service
-	systemctl --user start cortex-server.service
-	@echo "Service gestartet"
+	@systemctl --user start cortex-server.service && \
+	echo "✓ Service gestartet"
 
 service-stop: service-reload ## Stoppt den Service
-	systemctl --user stop cortex-server.service
-	@echo "Service gestoppt"
+	@systemctl --user stop cortex-server.service && \
+	echo "✓ Service gestoppt"
 
 service-restart: service-reload ## Startet den Service neu
-	systemctl --user restart cortex-server.service
-	@echo "Service neu gestartet"
+	@systemctl --user restart cortex-server.service && \
+	echo "✓ Service neu gestartet"
 
 service-status: service-reload ## Zeigt den Status des Services
 	systemctl --user status cortex-server.service
