@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -161,6 +162,24 @@ func ParseJSONBodyOrError(w http.ResponseWriter, r *http.Request, v any) bool {
 // Returns true if valid, false otherwise
 func ValidateNotEmpty(value, fieldName string) bool {
 	return strings.TrimSpace(value) != ""
+}
+
+// ValidateWebhookURL returns an error if the URL is empty, unparseable, or not http/https.
+func ValidateWebhookURL(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return errors.New("url is required")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return errors.New("url must use http or https scheme")
+	}
+	if u.Host == "" {
+		return errors.New("url must have a host")
+	}
+	return nil
 }
 
 // ValidateTenantParams validates tenant parameters and writes error response if invalid

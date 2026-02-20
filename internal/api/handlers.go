@@ -652,8 +652,8 @@ func (h *Handlers) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.URL == "" {
-		http.Error(w, "url is required", http.StatusBadRequest)
+	if err := helpers.ValidateWebhookURL(req.URL); err != nil {
+		http.Error(w, "invalid webhook url: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 

@@ -177,6 +177,21 @@ func TestUnmarshalMetadataNull(t *testing.T) {
 	}
 }
 
+func TestValidateWebhookURL(t *testing.T) {
+	ok := []string{"https://example.com/hook", "http://localhost:8080/callback"}
+	for _, u := range ok {
+		if err := ValidateWebhookURL(u); err != nil {
+			t.Errorf("ValidateWebhookURL(%q) = %v", u, err)
+		}
+	}
+	bad := []string{"", " ", "ftp://x.com", "http://", "not-a-url", "javascript:alert(1)"}
+	for _, u := range bad {
+		if err := ValidateWebhookURL(u); err == nil {
+			t.Errorf("ValidateWebhookURL(%q) = nil, want error", u)
+		}
+	}
+}
+
 func TestSafeJSONPathKey(t *testing.T) {
 	ok := []string{"a", "type", "user_id", "content-type", "a.b.c"}
 	for _, k := range ok {
