@@ -10,23 +10,25 @@ description: |-
 
 # Cortex – Lokales Gedächtnis
 
-## Server
+## Server (systemd User-Dienst)
+
+Cortex wird als **User-Dienst** (systemctl --user) betrieben – kein sudo nötig. Unit-Datei: `cortex-server.service` (nach `make service-install` unter `~/.config/systemd/user/cortex-server.service`).
 
 ```bash
 # Systemd-User-Konfiguration neu laden
 systemctl --user daemon-reload
 
-# Dienst beim Login aktivieren
-systemctl --user enable cortex.service
+# User-Dienst beim Login aktivieren
+systemctl --user enable cortex-server.service
 
-# Dienst sofort starten
-systemctl --user start cortex.service
+# User-Dienst starten
+systemctl --user start cortex-server.service
 
 # Status abfragen
-systemctl --user status cortex.service
+systemctl --user status cortex-server.service
 
 # Logs einsehen
-journalctl --user -u cortex.service -f
+journalctl --user -u cortex-server.service -f
 ```
 
 ## CLI (cortex-cli)
@@ -155,8 +157,8 @@ Cortex bietet zwei Embedding-Methoden:
 # 2. In .env aktivieren
 echo "CORTEX_EMBEDDING_MODEL_PATH=~/.openclaw/gte-small.gtemodel" >> .env
 
-# 3. Server neu starten
-systemctl --user restart cortex.service
+# 3. Server neu starten (User-Dienst)
+systemctl --user restart cortex-server.service
 ```
 
 #### 2. **Hash-basierter Service** (Standard, kein Download)

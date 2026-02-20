@@ -60,11 +60,7 @@ make run
 ### 2. Health-Check
 
 ```bash
-# Mit CLI
 ./cortex-cli health
-
-# Mit curl
-curl http://localhost:9123/health
 ```
 
 ### 3. Erste Schritte
@@ -124,17 +120,17 @@ make run
 go run ./cmd/cortex-server
 ```
 
-**Option 2: Als systemd Service (Produktion)**
+**Option 2: Als systemd User-Service (Produktion)**
 ```bash
-# Service installieren und aktivieren
+# User-Dienst installieren (legt ~/.config/systemd/user/cortex-server.service an)
 make service-install
 make service-enable
 make service-start
 
-# Status prüfen
+# Status prüfen (systemctl --user status cortex-server.service)
 make service-status
 
-# Logs anzeigen
+# Logs anzeigen (journalctl --user -u cortex-server.service -f)
 make service-logs
 ```
 
@@ -341,16 +337,18 @@ make clean          # Entfernt Build-Artefakte
 make install        # Installiert Binaries nach /usr/local/bin
 ```
 
-### Service-Management (systemd)
+### Service-Management (systemd User-Service)
+
+Der Cortex-Server wird als **User-Dienst** (systemctl --user) betrieben – kein sudo nötig, der Dienst läuft in deinem Benutzerkontext.
 
 ```bash
-make service-install    # Installiert systemd Service
-make service-enable     # Aktiviert Service beim Login
-make service-start      # Startet Service
+make service-install    # Installiert User-Unit nach ~/.config/systemd/user/cortex-server.service
+make service-enable     # Aktiviert Service beim Login (systemctl --user enable)
+make service-start      # Startet Service (systemctl --user start)
 make service-stop       # Stoppt Service
 make service-restart    # Startet Service neu
-make service-status     # Zeigt Status
-make service-logs       # Zeigt Logs (follow mode)
+make service-status     # Zeigt Status (systemctl --user status cortex-server.service)
+make service-logs       # Zeigt Logs (journalctl --user -u cortex-server.service -f)
 make service-disable    # Deaktiviert Service
 ```
 
@@ -361,79 +359,35 @@ make kill            # Beendet Prozess auf Cortex-Port
 make help            # Zeigt alle verfügbaren Targets
 ```
 
-## 📡 API-Endpunkte
+## 📡 API-Endpunkte (CLI)
+
+Alle Operationen werden über **cortex-cli** ausgeführt (App/User aus `-app-id`/`-user-id` oder `CORTEX_APP_ID`/`CORTEX_USER_ID`).
 
 ### Neutron-kompatible Seeds-API
 
 Vollständig kompatibel mit Neutron Memory API:
 
-#### `POST /seeds` – Memory speichern
+#### Memory speichern, suchen, löschen
 
 ```bash
-curl -X POST http://localhost:9123/seeds \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "openclaw",
-    "externalUserId": "user1",
-    "content": "Der Nutzer mag Kaffee mit Hafermilch",
-    "metadata": {"tags": ["preferences", "coffee"]}
-  }'
+./cortex-cli store "Der Nutzer mag Kaffee mit Hafermilch" '{"tags":["preferences","coffee"]}'
+./cortex-cli query "Kaffee-Präferenzen" 5 0.5
+./cortex-cli delete 1
+./cortex-cli generate-embeddings 10
 ```
 
-#### `POST /seeds/query` – Semantische Suche
+#### Memories auflisten (Pagination)
 
 ```bash
-curl -X POST http://localhost:9123/seeds/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "openclaw",
-    "externalUserId": "user1",
-    "query": "Kaffee-Präferenzen",
-    "limit": 5,
-    "threshold": 0.5
-  }'
-```
-
-#### `DELETE /seeds/:id` – Memory löschen
-
-```bash
-curl -X DELETE "http://localhost:9123/seeds/1?appId=openclaw&externalUserId=user1"
-```
-
-#### `POST /seeds/generate-embeddings` – Embeddings generieren
-
-```bash
-curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=10"
+./cortex-cli seeds-list 20 0
 ```
 
 ### Agent Contexts API
 
-#### `POST /agent-contexts` – Context erstellen
-
 ```bash
-curl -X POST http://localhost:9123/agent-contexts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "openclaw",
-    "externalUserId": "user1",
-    "agentId": "my-agent",
-    "memoryType": "episodic",
-    "payload": {"key": "value"}
-  }'
-```
-
-#### `GET /agent-contexts` – Contexts auflisten
-
-```bash
-curl "http://localhost:9123/agent-contexts?appId=openclaw&externalUserId=user1&agentId=my-agent"
-```
-
-#### `GET /agent-contexts/:id` – Context abrufen
-
-`appId` und `externalUserId` (Query) sind erforderlich (Tenant-Isolation).
-
-```bash
-curl "http://localhost:9123/agent-contexts/1?appId=openclaw&externalUserId=user1"
+./cortex-cli context-create "my-agent" episodic '{"key":"value"}'
+./cortex-cli context-list "my-agent"
+./cortex-cli context-get 1
 ```
 
 ### Cortex-API (Erweitert)
@@ -441,46 +395,39 @@ curl "http://localhost:9123/agent-contexts/1?appId=openclaw&externalUserId=user1
 #### Entities & Relations
 
 ```bash
-# Entity-Fact setzen
-curl -X POST "http://localhost:9123/entities?entity=user:jarvis" \
-  -H "Content-Type: application/json" \
-  -d '{"key": "favorite_coffee", "value": "Latte mit Hafermilch"}'
-
-# Entity abrufen
-curl "http://localhost:9123/entities?name=user:jarvis"
-
-# Relation hinzufügen
-curl -X POST http://localhost:9123/relations \
-  -H "Content-Type: application/json" \
-  -d '{"from": "user:jarvis", "to": "user:alice", "type": "friend"}'
-
-# Relations abrufen
-curl "http://localhost:9123/relations?entity=user:jarvis"
+./cortex-cli entity-add user:jarvis favorite_coffee "Latte mit Hafermilch"
+./cortex-cli entity-get user:jarvis
+./cortex-cli relation-add user:jarvis user:alice friend
+./cortex-cli relation-get user:jarvis
 ```
 
 #### Bundles
 
 ```bash
-# Bundle erstellen
-curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Coffee Preferences"}'
-
-# Bundles auflisten
-curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123"
+./cortex-cli bundle-create "Coffee Preferences"
+./cortex-cli bundle-list
+./cortex-cli bundle-get 1
+./cortex-cli bundle-delete 1
 ```
 
 #### Statistiken & Health
 
 ```bash
-# Health-Check
-curl http://localhost:9123/health
-
-# Statistiken
-curl http://localhost:9123/stats
+./cortex-cli health
+./cortex-cli stats
 ```
 
-Vollständige API-Dokumentation: Siehe [docs/API.md](docs/API.md)
+#### Export, Import, Backup, Restore, Analytics
+
+```bash
+./cortex-cli export backup.json
+./cortex-cli import backup.json true
+./cortex-cli backup /pfad/zur/cortex-backup.db
+./cortex-cli restore /pfad/zur/cortex-backup.db
+./cortex-cli analytics 7
+```
+
+Vollständige API-Referenz (HTTP): Siehe [docs/API.md](docs/API.md)
 
 ## 🔍 Semantische Suche & Embeddings
 

@@ -85,6 +85,32 @@ func main() {
 		err = cmdRelationAdd(client, cmdArgs)
 	case "relation-get":
 		err = cmdRelationGet(client, cmdArgs)
+	case "bundle-create":
+		err = cmdBundleCreate(client, cmdArgs)
+	case "bundle-list":
+		err = cmdBundleList(client)
+	case "bundle-get":
+		err = cmdBundleGet(client, cmdArgs)
+	case "bundle-delete":
+		err = cmdBundleDelete(client, cmdArgs)
+	case "webhook-create":
+		err = cmdWebhookCreate(client, cmdArgs)
+	case "webhook-list":
+		err = cmdWebhookList(client)
+	case "webhook-delete":
+		err = cmdWebhookDelete(client, cmdArgs)
+	case "export":
+		err = cmdExport(client, cmdArgs)
+	case "import":
+		err = cmdImport(client, cmdArgs)
+	case "backup":
+		err = cmdBackup(client, cmdArgs)
+	case "restore":
+		err = cmdRestore(client, cmdArgs)
+	case "analytics":
+		err = cmdAnalytics(client, cmdArgs)
+	case "seeds-list":
+		err = cmdSeedsList(client, cmdArgs)
 	case "help", "-h", "--help":
 		printHelp(os.Args[0])
 		os.Exit(0)
@@ -130,6 +156,19 @@ Befehle:
   benchmark [count]         - Performance-Benchmark (Standard: 20 Requests)
   benchmark-embeddings [count] [service] - Benchmark Embedding-Generierung (count=50, service=local|gte|both)
   api-key <create|delete|show> [env_file] - API-Key verwalten (Standard: .env im Projekt)
+  bundle-create [name]      - Bundle anlegen
+  bundle-list               - Bundles auflisten
+  bundle-get <id>           - Bundle abrufen
+  bundle-delete <id>        - Bundle löschen
+  webhook-create <url> [events] [secret] - Webhook anlegen (events: kommagetrennt)
+  webhook-list              - Webhooks auflisten
+  webhook-delete <id>       - Webhook löschen
+  export [output_file]      - Daten exportieren (stdout wenn keine Datei)
+  import <path|-] [overwrite] - Daten importieren (- = stdin)
+  backup [path]             - Datenbank-Backup erstellen
+  restore <path>            - Datenbank aus Backup wiederherstellen
+  analytics [days]          - Analytik abrufen (Standard: 30 Tage)
+  seeds-list [limit] [offset] - Memories auflisten (Pagination)
   help                      - Zeigt diese Hilfe
 
 Umgebungsvariablen:
@@ -163,7 +202,15 @@ Beispiele:
   %s benchmark-embeddings 100 local
   %s api-key create
   %s api-key show
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+  %s bundle-create "Coffee Preferences"
+  %s bundle-list
+  %s export backup.json
+  %s import backup.json true
+  %s backup /path/to/backup.db
+  %s restore /path/to/backup.db
+  %s analytics 7
+  %s seeds-list 20 0
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {
@@ -832,6 +879,299 @@ func cmdRelationGet(client *cliClient, args []string) error {
 	}
 	if code != http.StatusOK {
 		return fmt.Errorf("Fehler beim Abrufen der Relations (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdBundleCreate(client *cliClient, args []string) error {
+	name := "Unnamed Bundle"
+	if len(args) >= 1 {
+		name = args[0]
+	}
+	body := map[string]any{
+		"appId":          client.appID,
+		"externalUserId": client.userID,
+		"name":           name,
+	}
+	data, code, err := client.do(http.MethodPost, "/bundles", body)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Anlegen des Bundles (HTTP %d): %s", code, string(data))
+	}
+	var res struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(data, &res); err == nil && res.ID != 0 {
+		fmt.Println(res.ID)
+	} else {
+		fmt.Println(string(data))
+	}
+	return nil
+}
+
+func cmdBundleList(client *cliClient) error {
+	path := "/bundles?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Auflisten der Bundles (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdBundleGet(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: bundle-get <id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil || id <= 0 {
+		return fmt.Errorf("id muss eine positive Ganzzahl sein")
+	}
+	path := "/bundles/" + strconv.FormatInt(id, 10) + "?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code == http.StatusNotFound {
+		return fmt.Errorf("Bundle nicht gefunden (ID: %d)", id)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdBundleDelete(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: bundle-delete <id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil || id <= 0 {
+		return fmt.Errorf("id muss eine positive Ganzzahl sein")
+	}
+	path := "/bundles/" + strconv.FormatInt(id, 10) + "?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	data, code, err := client.do(http.MethodDelete, path, nil)
+	if err != nil {
+		return err
+	}
+	if code == http.StatusNotFound {
+		return fmt.Errorf("Bundle nicht gefunden (ID: %d)", id)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Löschen (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println("Bundle gelöscht")
+	return nil
+}
+
+func cmdWebhookCreate(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: webhook-create <url> [events] [secret]. events z.B. memory.created,memory.deleted")
+	}
+	webhookURL := args[0]
+	events := []string{"memory.created", "memory.deleted"}
+	if len(args) >= 2 && args[1] != "" {
+		events = strings.Split(args[1], ",")
+		for i := range events {
+			events[i] = strings.TrimSpace(events[i])
+		}
+	}
+	secret := ""
+	if len(args) >= 3 {
+		secret = args[2]
+	}
+	body := map[string]any{
+		"url":    webhookURL,
+		"events": events,
+		"appId":  client.appID,
+	}
+	if secret != "" {
+		body["secret"] = secret
+	}
+	data, code, err := client.do(http.MethodPost, "/webhooks", body)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Anlegen des Webhooks (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdWebhookList(client *cliClient) error {
+	path := "/webhooks?appId=" + url.QueryEscape(client.appID)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Auflisten der Webhooks (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdWebhookDelete(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: webhook-delete <id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil || id <= 0 {
+		return fmt.Errorf("id muss eine positive Ganzzahl sein")
+	}
+	path := "/webhooks/" + strconv.FormatInt(id, 10) + "?appId=" + url.QueryEscape(client.appID)
+	data, code, err := client.do(http.MethodDelete, path, nil)
+	if err != nil {
+		return err
+	}
+	if code == http.StatusNotFound {
+		return fmt.Errorf("Webhook nicht gefunden (ID: %d)", id)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Löschen (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println("Webhook gelöscht")
+	return nil
+}
+
+func cmdExport(client *cliClient, args []string) error {
+	path := "/export?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Export (HTTP %d): %s", code, string(data))
+	}
+	if len(args) >= 1 && args[0] != "" && args[0] != "-" {
+		if err := os.WriteFile(args[0], data, 0644); err != nil {
+			return fmt.Errorf("Fehler beim Schreiben der Datei: %w", err)
+		}
+		fmt.Printf("Export nach %s geschrieben\n", args[0])
+	} else {
+		fmt.Print(string(data))
+	}
+	return nil
+}
+
+func cmdImport(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: import <path|-> [overwrite]. overwrite=true überschreibt vorhandene Daten")
+	}
+	var raw []byte
+	var err error
+	if args[0] == "-" {
+		raw, err = io.ReadAll(os.Stdin)
+	} else {
+		raw, err = os.ReadFile(args[0])
+	}
+	if err != nil {
+		return fmt.Errorf("Fehler beim Lesen: %w", err)
+	}
+	overwrite := false
+	if len(args) >= 2 && strings.ToLower(args[1]) == "true" {
+		overwrite = true
+	}
+	apiPath := "/import?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	if overwrite {
+		apiPath += "&overwrite=true"
+	}
+	// Body is raw JSON (export format)
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return fmt.Errorf("Ungültiges Export-JSON: %w", err)
+	}
+	data, code, err := client.do(http.MethodPost, apiPath, body)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Import (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdBackup(client *cliClient, args []string) error {
+	path := "/backup"
+	if len(args) >= 1 && args[0] != "" {
+		path += "?path=" + url.QueryEscape(args[0])
+	}
+	data, code, err := client.do(http.MethodPost, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Backup (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdRestore(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: restore <path>")
+	}
+	path := "/restore?path=" + url.QueryEscape(args[0])
+	data, code, err := client.do(http.MethodPost, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Restore (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdAnalytics(client *cliClient, args []string) error {
+	path := "/analytics?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID)
+	days := 30
+	if len(args) >= 1 {
+		if d, err := strconv.Atoi(args[0]); err == nil && d >= 1 && d <= 365 {
+			days = d
+		}
+	}
+	path += "&days=" + strconv.Itoa(days)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Abrufen der Analytik (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdSeedsList(client *cliClient, args []string) error {
+	limit := 50
+	offset := 0
+	if len(args) >= 1 {
+		if n, err := strconv.Atoi(args[0]); err == nil && n >= 1 && n <= 100 {
+			limit = n
+		}
+	}
+	if len(args) >= 2 {
+		if n, err := strconv.Atoi(args[1]); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+	path := "/seeds?appId=" + url.QueryEscape(client.appID) + "&externalUserId=" + url.QueryEscape(client.userID) + "&limit=" + strconv.Itoa(limit) + "&offset=" + strconv.Itoa(offset)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Auflisten (HTTP %d): %s", code, string(data))
 	}
 	fmt.Println(string(data))
 	return nil

@@ -64,26 +64,10 @@ Speichert ein neues Memory (Seed) und generiert automatisch ein Embedding.
 }
 ```
 
-**Beispiele:**
-
+**CLI:**
 ```bash
-# Mit Query-Parametern (Neutron-Style)
-curl -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Der Benutzer mag Kaffee",
-    "metadata": {"source": "chat"}
-  }'
-
-# Mit Body-Parametern (Cortex-Style)
-curl -X POST http://localhost:9123/seeds \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "myapp",
-    "externalUserId": "user123",
-    "content": "Der Benutzer mag Kaffee",
-    "metadata": {"source": "chat"}
-  }'
+cortex-cli store "Der Benutzer mag Kaffee" '{"source":"chat"}'
+# App/User aus -app-id/-user-id oder CORTEX_APP_ID/CORTEX_USER_ID
 ```
 
 ### `GET /seeds` - Memories auflisten (Pagination)
@@ -99,8 +83,9 @@ Gibt eine paginierte Liste von Memories für einen Tenant zurück (z. B. für da
 **Response (200 OK):**
 JSON-Array von Memory-Objekten (id, content, type, metadata, created_at usw., ohne embedding).
 
+**CLI:**
 ```bash
-curl "http://localhost:9123/seeds?appId=myapp&externalUserId=user123&limit=20&offset=0"
+cortex-cli seeds-list 20 0
 ```
 
 ### `POST /seeds/query` - Memory-Suche
@@ -148,38 +133,10 @@ Führt semantische Suche durch (mit Embeddings) oder fällt auf Textsuche zurüc
 ]
 ```
 
-**Beispiele:**
-
+**CLI:**
 ```bash
-# Mit Query-Parametern (Neutron-Style)
-curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Was mag der Benutzer?",
-    "limit": 5
-  }'
-
-# Mit Body-Parametern (Cortex-Style)
-curl -X POST http://localhost:9123/seeds/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "myapp",
-    "externalUserId": "user123",
-    "query": "Was mag der Benutzer?",
-    "limit": 5,
-    "threshold": 0.5
-  }'
-
-# Mit Metadata-Filter
-curl -X POST http://localhost:9123/seeds/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "appId": "myapp",
-    "externalUserId": "user123",
-    "query": "Theme",
-    "limit": 10,
-    "metadataFilter": {"typ": "persönlich"}
-  }'
+cortex-cli query "Was mag der Benutzer?" 5 0.5
+cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
 ```
 
 ### `DELETE /seeds/:id` - Memory löschen
@@ -198,10 +155,9 @@ Löscht ein Memory anhand der ID.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X DELETE "http://localhost:9123/seeds/42?appId=myapp&externalUserId=user123" \
+cortex-cli delete 42
 ```
 
 ### `POST /seeds/generate-embeddings` - Embeddings batch-generieren
@@ -218,10 +174,9 @@ Generiert Embeddings für alle Memories ohne Embedding.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X POST "http://localhost:9123/seeds/generate-embeddings?batchSize=20" \
+cortex-cli generate-embeddings 20
 ```
 
 ## Bundles API
@@ -256,12 +211,10 @@ Erstellt ein neues Bundle.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Coffee Preferences"}'
+cortex-cli bundle-create "Coffee Preferences"
+# Gibt die neue Bundle-ID aus (für Scripts: BUNDLE_ID=$(cortex-cli bundle-create "Coffee Preferences"))
 ```
 
 ### `GET /bundles` - Bundles auflisten
@@ -292,10 +245,9 @@ Listet alle Bundles für einen Tenant auf.
 ]
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
+cortex-cli bundle-list
 ```
 
 ### `GET /bundles/:id` - Bundle abrufen
@@ -317,10 +269,9 @@ Ruft ein Bundle anhand der ID ab.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
+cortex-cli bundle-get 1
 ```
 
 ### `DELETE /bundles/:id` - Bundle löschen
@@ -339,10 +290,9 @@ Löscht ein Bundle. **Hinweis:** Memories bleiben erhalten, `bundleId` wird auf 
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X DELETE "http://localhost:9123/bundles/1?appId=myapp&externalUserId=user123" \
+cortex-cli bundle-delete 1
 ```
 
 ## Cortex API
@@ -542,31 +492,17 @@ Prüft den API-Status. **Keine Authentifizierung erforderlich.**
 
 ## Beispiele
 
-### Vollständiges Beispiel: Memory mit Bundle
+### Vollständiges Beispiel: Memory mit Bundle (CLI)
 
 ```bash
-# 1. Bundle erstellen
-BUNDLE_ID=$(curl -s -X POST "http://localhost:9123/bundles?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Coffee Preferences"}' | jq -r '.id')
+# 1. Bundle erstellen (CLI gibt die ID aus)
+BUNDLE_ID=$(cortex-cli bundle-create "Coffee Preferences")
 
-# 2. Memory in Bundle speichern
-MEMORY_ID=$(curl -s -X POST "http://localhost:9123/seeds?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"content\": \"Lieblingskaffee: Latte mit Hafermilch\",
-    \"metadata\": {\"source\": \"chat\"},
-    \"bundleId\": $BUNDLE_ID
-  }" | jq -r '.id')
+# 2. Memory in Bundle speichern (store unterstützt kein bundleId direkt – über API oder SDK)
+cortex-cli store "Lieblingskaffee: Latte mit Hafermilch" '{"source":"chat"}'
 
-# 3. Memories in Bundle suchen
-curl -X POST "http://localhost:9123/seeds/query?appId=myapp&externalUserId=user123" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"query\": \"Kaffee\",
-    \"bundleId\": $BUNDLE_ID,
-    \"limit\": 10
-  }"
+# 3. Memories suchen (Query mit optionalem bundleId über SDK/API; CLI: query "Kaffee" 10)
+cortex-cli query "Kaffee" 10
 ```
 
 ### TypeScript SDK Beispiel
@@ -665,15 +601,9 @@ Verfügbare Event-Typen:
 
 ### Webhook erstellen
 
+**CLI:**
 ```bash
-curl -X POST http://localhost:9123/webhooks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com/webhook",
-    "events": ["memory.created", "memory.deleted"],
-    "secret": "webhook-secret",
-    "appId": "myapp"
-  }'
+cortex-cli webhook-create "https://example.com/webhook" "memory.created,memory.deleted" "webhook-secret"
 ```
 
 **Response:**
@@ -691,16 +621,18 @@ curl -X POST http://localhost:9123/webhooks \
 
 ### Webhooks auflisten
 
+**CLI:**
 ```bash
-curl "http://localhost:9123/webhooks?appId=myapp" \
+cortex-cli webhook-list
 ```
 
 ### Webhook löschen
 
 `appId` (Query) ist erforderlich (Tenant-Isolation).
 
+**CLI:**
 ```bash
-curl -X DELETE "http://localhost:9123/webhooks/1?appId=myapp"
+cortex-cli webhook-delete 1
 ```
 
 ### Webhook-Payload
@@ -776,11 +708,11 @@ Exportiert alle Daten (Memories, Bundles, Webhooks) für einen Tenant als JSON.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl "http://localhost:9123/export?appId=myapp&externalUserId=user123" \
-  -o cortex-export.json
+cortex-cli export cortex-export.json
+# Ohne Dateiname: Ausgabe auf stdout
+cortex-cli export
 ```
 
 ### `POST /import` - Daten importieren
@@ -814,12 +746,12 @@ Importiert Daten aus einem Export-File.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user123&overwrite=false" \
-  -H "Content-Type: application/json" \
-  -d @cortex-export.json
+cortex-cli import cortex-export.json
+# Mit Überschreiben existierender Daten:
+cortex-cli import cortex-export.json true
+# Von stdin: cortex-cli import -
 ```
 
 ## Backup/Restore
@@ -841,14 +773,10 @@ Erstellt ein Backup der SQLite-Datenbank.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-# Backup mit Standard-Pfad
-curl -X POST "http://localhost:9123/backup" \
-
-# Backup mit benutzerdefiniertem Pfad
-curl -X POST "http://localhost:9123/backup?path=/backups/cortex-backup.db" \
+cortex-cli backup
+cortex-cli backup /backups/cortex-backup.db
 ```
 
 ### `POST /restore` - Datenbank wiederherstellen
@@ -870,10 +798,9 @@ Stellt die Datenbank aus einem Backup wieder her.
 }
 ```
 
-**Beispiel:**
-
+**CLI:**
 ```bash
-curl -X POST "http://localhost:9123/restore?path=/backups/cortex-backup.db" \
+cortex-cli restore /backups/cortex-backup.db
 ```
 
 **Hinweis:** Der Restore-Prozess kopiert die Backup-Datei über die aktuelle Datenbank. Ein Server-Neustart ist erforderlich, damit die Änderungen wirksam werden.
@@ -927,17 +854,11 @@ Ruft Analytics-Daten für einen Tenant oder global ab.
 }
 ```
 
-**Beispiele:**
-
+**CLI:**
 ```bash
-# Tenant-spezifische Analytics (letzte 30 Tage)
-curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123" \
-
-# Tenant-spezifische Analytics (letzte 7 Tage)
-curl "http://localhost:9123/analytics?appId=myapp&externalUserId=user123&days=7" \
-
-# Globale Analytics (alle Tenants)
-curl "http://localhost:9123/analytics?days=30" \
+cortex-cli analytics           # Letzte 30 Tage (Standard)
+cortex-cli analytics 7         # Letzte 7 Tage
+# Ohne appId/userId (global): nur über HTTP-API mit weggelassenen Query-Parametern
 ```
 
 **Verfügbare Metriken:**

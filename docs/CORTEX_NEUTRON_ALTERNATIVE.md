@@ -73,17 +73,13 @@ await client.storeMemory({
 **Beispiel-Szenario:**
 ```bash
 # Agent 1 speichert Memory
-curl -X POST "http://localhost:9123/seeds?appId=openclaw&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "User mag Kaffee"}'
+cortex-cli store "User mag Kaffee"
 
 # Server wird neu gestartet
 # ...
 
 # Agent 2 kann dasselbe Memory abfragen
-curl -X POST "http://localhost:9123/seeds/query?appId=openclaw&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Kaffee", "limit": 5}'
+cortex-cli query "Kaffee" 5
 ```
 
 ### 4. Cross-Platform Continuity ✅
@@ -288,12 +284,10 @@ const memories = await client2.queryMemory({
 
 ```bash
 # Maschine 1: Datenbank exportieren
-curl "http://localhost:9123/export?appId=openclaw&externalUserId=user1" > backup.json
+cortex-cli export backup.json
 
 # Maschine 2: Datenbank importieren
-curl -X POST "http://localhost:9123/import?appId=openclaw&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d @backup.json
+cortex-cli import backup.json
 
 # Oder: SQLite-Datei direkt kopieren
 scp ~/.openclaw/cortex.db user@new-machine:~/.openclaw/
@@ -510,9 +504,8 @@ const client = new CortexClient({
 ```bash
 # 1. Export aus Neutron (falls möglich)
 # 2. Import in Cortex
-curl -X POST "http://localhost:9123/import?appId=myapp&externalUserId=user1" \
-  -H "Content-Type: application/json" \
-  -d @neutron-export.json
+cortex-cli import neutron-export.json
+# Mit Überschreiben: cortex-cli import neutron-export.json true
 ```
 
 ### Schritt 3: Code anpassen

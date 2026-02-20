@@ -69,11 +69,11 @@ benchmark: build ## Führt alle Benchmarks aus (API + Embeddings)
 	$(MAKE) benchmark-embeddings
 
 benchmark-api: build ## Führt API-Benchmark aus (benötigt laufenden Server). Usage: make benchmark-api COUNT=50
-	@if ! curl -s http://localhost:9123/health > /dev/null 2>&1; then \
+	@./cortex-cli health > /dev/null 2>&1 || { \
 		echo "Fehler: Server läuft nicht auf http://localhost:9123"; \
 		echo "Starte Server mit: make run (in separatem Terminal) oder make service-start"; \
 		exit 1; \
-	fi
+	}
 	@./cortex-cli benchmark $(or $(COUNT),50)
 
 # Helper target to capture positional arguments

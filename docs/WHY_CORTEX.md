@@ -137,7 +137,7 @@ store.CreateMemory(&mem) // Persistiert in Datenbank
 cp ~/.openclaw/cortex.db /backup/cortex.db
 
 # Oder Export/Import verwenden
-curl -X POST http://localhost:9123/export?appId=openclaw&externalUserId=user123
+cortex-cli export backup.json
 ```
 
 ### 3. Memory kann zwischen Instanzen geteilt werden

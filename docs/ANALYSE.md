@@ -80,7 +80,7 @@ flowchart TB
 
 - **Build:** `make build` → `cortex-server` + `cortex-cli`. Dashboard: `make build-dashboard` (→ `internal/dashboard/dist`), danach `make build` für Server inkl. eingebettetem Dashboard.
 - **Run:** `make run` (Server), `make dev` (Vite + Server mit Proxy für HMR).
-- **Deployment:** systemd (`make service-install`, `service-enable`, `service-start`) oder `docker-compose up -d`.
+- **Deployment:** systemd User-Service (`make service-install`, `service-enable`, `service-start` → `systemctl --user`, Unit: `~/.config/systemd/user/cortex-server.service`) oder `docker-compose up -d`.
 - **CI:** [.github/workflows/ci.yml](../.github/workflows/ci.yml) – Go 1.23, Tests mit Race + Coverage, Codecov.
 
 ---

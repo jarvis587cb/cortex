@@ -42,9 +42,9 @@ cd cortex
 # 2. Binaries bauen
 make build
 
-# 3. Server starten (optional: systemd Service)
+# 3. Server starten (optional: systemd User-Service)
 make run
-# oder
+# oder als User-Dienst (systemctl --user, kein sudo):
 make service-install
 make service-enable
 make service-start

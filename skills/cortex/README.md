@@ -6,8 +6,7 @@ Dieser Ordner enthält die Dokumentation und Service-Dateien für Cortex.
 
 - **`SKILL.md`** – Vollständige Dokumentation (Installation, API, CLI, OpenClaw-Integration)
 - **`hooks.sh`** – Auto-Recall/Capture Hooks für OpenClaw
-- **`cortex-server.service`** – systemd User Service-Datei für den Cortex-Server
-- **`cortex-server-installed.service`** – Alternative Service-Datei für installierte Binaries
+- **`cortex-server.service`** – systemd User-Service-Datei für den Cortex-Server (wird nach `~/.config/systemd/user/` installiert)
 
 ## Installation
 
@@ -50,8 +49,6 @@ make build
 go run ./cmd/cortex-server
 
 # 3. Health-Check
-curl http://localhost:9123/health
-# oder
 ./cortex-cli health
 ```
 
