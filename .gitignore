@@ -47,5 +47,8 @@ tmp/
 temp/
 *.tmp
 
+# Python virtual environment
+scripts/.venv/
+
 # Docker
 .dockerignore

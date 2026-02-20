@@ -147,6 +147,7 @@ cp .env.example .env
 | `CORTEX_RATE_LIMIT` | Rate Limit (Requests/Zeitfenster) | `100` |
 | `CORTEX_RATE_LIMIT_WINDOW` | Rate Limit Zeitfenster | `1m` |
 | `CORTEX_API_KEY` | Optional: API-Key für Auth | - |
+| `CORTEX_EMBEDDING_MODEL_PATH` | Pfad zur GTE-Small .gtemodel Datei | - (Hash-Service) |
 
 > **Hinweis:** Lokale Installation benötigt **keinen API-Key**. API-Key ist nur für Produktion/Multi-User-Setups.
 
@@ -436,13 +437,41 @@ Vollständige API-Dokumentation: Siehe [docs/API.md](docs/API.md)
 
 Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**:
 
-### Features
+### Embedding-Optionen
+
+Cortex bietet zwei Embedding-Methoden:
+
+#### 1. **GTE-Small Modell** (Empfohlen für beste Qualität)
+
+- ✅ **384-dimensionale Embeddings** – GTE-Small Modell (Alibaba DAMO Academy)
+- ✅ **Hochwertige Semantik** – State-of-the-art Text-Embeddings
+- ✅ **Vollständig lokal** – Keine externe API nötig
+- ✅ **Keine API-Keys** – Funktioniert komplett offline
+- ⚠️ **Modell-Download erforderlich** – ~70MB Modell-Datei
+
+**Setup:**
+
+```bash
+# 1. Modell herunterladen und konvertieren
+./scripts/download-gte-model.sh
+
+# 2. In .env aktivieren
+echo "CORTEX_EMBEDDING_MODEL_PATH=~/.openclaw/gte-small.gtemodel" >> .env
+
+# 3. Server neu starten
+make service-restart
+```
+
+#### 2. **Hash-basierter Service** (Standard, kein Download)
 
 - ✅ **384-dimensionale Embeddings** – Lokale Hash-basierte Generierung
+- ✅ **Sofort einsatzbereit** – Kein Download erforderlich
 - ✅ **Vollständig offline** – Keine externe API nötig
 - ✅ **Keine API-Keys** – Funktioniert ohne Konfiguration
 - ✅ **Synonym-Erweiterung** – Begriffe wie Kaffee/Latte/Espresso werden verknüpft
-- ✅ **Automatische Generierung** – Embeddings werden beim Speichern erstellt
+- ⚠️ **Niedrigere Qualität** – Für einfache Anwendungen ausreichend
+
+**Standard-Verhalten:** Wenn `CORTEX_EMBEDDING_MODEL_PATH` nicht gesetzt ist, wird automatisch der Hash-Service verwendet.
 
 ### Verwendung
 
@@ -458,6 +487,17 @@ Cortex unterstützt semantische Suche mit **vollständig lokalen Embeddings**:
 ```
 
 Die Suche verwendet **Cosine-Similarity** und gibt `similarity`-Scores (0.0-1.0) zurück.
+
+### Vergleich
+
+| Feature | GTE-Small | Hash-Service |
+|---------|-----------|--------------|
+| **Qualität** | ⭐⭐⭐⭐⭐ Hoch | ⭐⭐⭐ Mittel |
+| **Performance** | ~3x langsamer | Sehr schnell |
+| **Modell-Größe** | ~70MB | 0MB |
+| **Setup** | Download nötig | Sofort nutzbar |
+| **Pure Go** | ✅ Ja | ✅ Ja |
+| **Empfohlen für** | Produktion, beste Qualität | Entwicklung, schnelle Tests |
 
 ## 📚 TypeScript SDK
 

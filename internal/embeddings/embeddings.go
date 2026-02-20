@@ -3,7 +3,12 @@ package embeddings
 import (
 	"log/slog"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
+
+	"github.com/rcarmo/gte-go/gte"
 )
 
 // synonymExpandBegriffe: minimale Erweiterung für begriffliche Treffer (z. B. coffee ↔ latte).
@@ -149,11 +154,117 @@ func (l *LocalEmbeddingService) hashString(s string) uint32 {
 	return hash
 }
 
+// GTEEmbeddingService - GTE-Small Embedding-Service mit gte-go
+// Verwendet das GTE-Small Modell für hochwertige semantische Embeddings
+type GTEEmbeddingService struct {
+	model *gte.Model
+	mu    sync.RWMutex
+}
+
+// NewGTEEmbeddingService erstellt einen GTE Embedding Service
+// modelPath: Pfad zur .gtemodel Datei (z.B. "gte-small.gtemodel" oder "~/.openclaw/gte-small.gtemodel")
+func NewGTEEmbeddingService(modelPath string) (*GTEEmbeddingService, error) {
+	// Expandiere ~ zu Home-Verzeichnis
+	if strings.HasPrefix(modelPath, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		modelPath = filepath.Join(home, strings.TrimPrefix(modelPath, "~"))
+	}
+
+	// Prüfe ob Datei existiert
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		return nil, err
+	}
+
+	model, err := gte.Load(modelPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GTEEmbeddingService{
+		model: model,
+	}, nil
+}
+
+// GenerateEmbedding generiert ein Embedding mit GTE-Small
+func (g *GTEEmbeddingService) GenerateEmbedding(content string, contentType string) ([]float32, error) {
+	// GTE-Small unterstützt nur Text-Embeddings
+	// Für andere Content-Types verwenden wir nur den Textanteil
+	if contentType != "text/plain" && !strings.HasPrefix(contentType, "text/") {
+		// Für nicht-Text-Content, extrahiere Text falls möglich
+		// Hier vereinfacht: verwende Content als Text
+	}
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	embedding, err := g.model.Embed(content)
+	if err != nil {
+		return nil, err
+	}
+
+	// GTE-Small gibt bereits L2-normalisierte Embeddings zurück
+	return embedding, nil
+}
+
+// GenerateEmbeddingsBatch generiert Embeddings für mehrere Contents
+func (g *GTEEmbeddingService) GenerateEmbeddingsBatch(contents []string, contentType string) ([][]float32, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	embeddings, err := g.model.EmbedBatch(contents)
+	if err != nil {
+		return nil, err
+	}
+
+	return embeddings, nil
+}
+
+// Close schließt das Modell (für Cleanup)
+func (g *GTEEmbeddingService) Close() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.model != nil {
+		g.model.Close()
+		g.model = nil
+	}
+	return nil
+}
+
+var (
+	globalEmbeddingService EmbeddingService
+	serviceOnce            sync.Once
+)
+
 // GetEmbeddingService gibt den verfügbaren Embedding-Service zurück
-// Verwendet standardmäßig den lokalen Embedding-Service (vollständig offline)
+// Versucht zuerst gte-go zu laden (falls CORTEX_EMBEDDING_MODEL_PATH gesetzt),
+// sonst Fallback auf Hash-basierten Service
 func GetEmbeddingService() EmbeddingService {
-	slog.Info("Using Local Embedding Service")
-	return NewLocalEmbeddingService()
+	serviceOnce.Do(func() {
+		modelPath := os.Getenv("CORTEX_EMBEDDING_MODEL_PATH")
+		if modelPath != "" {
+			// Versuche GTE-Service zu laden
+			gteService, err := NewGTEEmbeddingService(modelPath)
+			if err != nil {
+				slog.Warn("Failed to load GTE embedding model, falling back to hash-based service",
+					"error", err,
+					"modelPath", modelPath)
+				globalEmbeddingService = NewLocalEmbeddingService()
+			} else {
+				slog.Info("Using GTE-Small Embedding Service",
+					"modelPath", modelPath)
+				globalEmbeddingService = gteService
+			}
+		} else {
+			slog.Info("Using Local Hash-based Embedding Service",
+				"hint", "Set CORTEX_EMBEDDING_MODEL_PATH to use GTE-Small model")
+			globalEmbeddingService = NewLocalEmbeddingService()
+		}
+	})
+	return globalEmbeddingService
 }
 
 // CosineSimilarity berechnet die Cosine-Ähnlichkeit zwischen zwei Vektoren

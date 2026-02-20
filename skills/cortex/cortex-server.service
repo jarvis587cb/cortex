@@ -18,6 +18,7 @@ Environment="CORTEX_PORT=9123"
 Environment="CORTEX_LOG_LEVEL=info"
 Environment="CORTEX_RATE_LIMIT=100"
 Environment="CORTEX_RATE_LIMIT_WINDOW=1m"
+Environment="CORTEX_EMBEDDING_MODEL_PATH=%h/.openclaw/gte-small.gtemodel"
 
 [Install]
 WantedBy=default.target
