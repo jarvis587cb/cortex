@@ -73,6 +73,14 @@ func main() {
 		err = cmdBenchmark(client, cmdArgs)
 	case "api-key":
 		err = cmdAPIKey(cmdArgs)
+	case "entity-add":
+		err = cmdEntityAdd(client, cmdArgs)
+	case "entity-get":
+		err = cmdEntityGet(client, cmdArgs)
+	case "relation-add":
+		err = cmdRelationAdd(client, cmdArgs)
+	case "relation-get":
+		err = cmdRelationGet(client, cmdArgs)
 	case "help", "-h", "--help":
 		printHelp(os.Args[0])
 		os.Exit(0)
@@ -107,6 +115,10 @@ Befehle:
   query <text> [limit] [threshold] [seedIds] - Suche (limit=5, threshold=0.2, seedIds z.B. 1,2,3)
   delete <id>                - Löscht ein Memory
   stats                     - Zeigt Statistiken
+  entity-add <entity> <key> <value> - Fact zu einer Entity hinzufügen
+  entity-get <entity>      - Entity mit allen Fakten abrufen
+  relation-add <from> <to> <type> - Relation zwischen Entities anlegen
+  relation-get <from>      - Alle Relations von einer Entity abrufen
   context-create <agentId> [memoryType] [payload] - Agent-Context anlegen (memoryType: episodic|semantic|procedural|working)
   context-list [agentId]    - Agent-Contexts auflisten
   context-get <id>          - Ein Agent-Context abrufen
@@ -133,6 +145,10 @@ Beispiele:
   %s query "Kaffee" 10 0.5 "1,2,3"
   %s delete 1
   %s stats
+  %s entity-add carsten lieblingsfarbe blau
+  %s entity-get carsten
+  %s relation-add carsten typescript programmiert
+  %s relation-get carsten
   %s context-create "my-agent" episodic '{}'
   %s context-list "my-agent"
   %s context-get 1
@@ -140,7 +156,7 @@ Beispiele:
   %s benchmark 50
   %s api-key create
   %s api-key show
-`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
+`, prog, defaultBaseURL, defaultAppID, defaultUserID, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog)
 }
 
 type cliClient struct {
@@ -553,6 +569,104 @@ func cmdBenchmark(client *cliClient, args []string) error {
 	summarize("query", queryTimes)
 	summarize("delete", deleteTimes)
 
+	return nil
+}
+
+func cmdEntityAdd(client *cliClient, args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("Verwendung: entity-add <entity> <key> <value>")
+	}
+	entity := args[0]
+	key := args[1]
+	value := args[2]
+
+	// Versuche value als JSON zu parsen, falls es JSON ist
+	var valueAny any = value
+	if len(value) > 0 && (value[0] == '{' || value[0] == '[') {
+		if err := json.Unmarshal([]byte(value), &valueAny); err == nil {
+			// Erfolgreich als JSON geparst
+		} else {
+			// Nicht JSON, als String verwenden
+			valueAny = value
+		}
+	}
+
+	body := map[string]any{
+		"key":   key,
+		"value": valueAny,
+	}
+	path := "/entities?entity=" + url.QueryEscape(entity)
+	data, code, err := client.do(http.MethodPost, path, body)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusNoContent {
+		return fmt.Errorf("Fehler beim Hinzufügen des Facts (HTTP %d): %s", code, string(data))
+	}
+	fmt.Printf("Fact '%s' zu Entity '%s' hinzugefügt\n", key, entity)
+	return nil
+}
+
+func cmdEntityGet(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: entity-get <entity>")
+	}
+	entity := args[0]
+
+	path := "/entities?name=" + url.QueryEscape(entity)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code == http.StatusNotFound {
+		return fmt.Errorf("Entity nicht gefunden: %s", entity)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Abrufen der Entity (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func cmdRelationAdd(client *cliClient, args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("Verwendung: relation-add <from> <to> <type>")
+	}
+	from := args[0]
+	to := args[1]
+	relType := args[2]
+
+	body := map[string]any{
+		"from": from,
+		"to":   to,
+		"type": relType,
+	}
+	data, code, err := client.do(http.MethodPost, "/relations", body)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusNoContent {
+		return fmt.Errorf("Fehler beim Anlegen der Relation (HTTP %d): %s", code, string(data))
+	}
+	fmt.Printf("Relation '%s' von '%s' zu '%s' angelegt\n", relType, from, to)
+	return nil
+}
+
+func cmdRelationGet(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: relation-get <from>")
+	}
+	from := args[0]
+
+	path := "/relations?entity=" + url.QueryEscape(from)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Abrufen der Relations (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
 	return nil
 }
 
