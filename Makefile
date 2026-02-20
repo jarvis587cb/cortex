@@ -1,4 +1,4 @@
-.PHONY: help build run test clean install kill copy-skill benchmark benchmark-api benchmark-embeddings _benchmark-embeddings-args service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
+.PHONY: help build run test clean install install-binaries kill copy-skill benchmark benchmark-api benchmark-embeddings _benchmark-embeddings-args service-install service-enable service-disable service-start service-stop service-restart service-status service-logs service-reload
 
 help: ## Zeigt diese Hilfe an
 	@echo "Cortex Makefile"
@@ -16,27 +16,16 @@ run: ## Startet den Server
 test: ## Führt alle Tests aus
 	go test -v ./...
 
-install: build ## Vollständige Installation: Binaries, Service und Skills
-	@echo "=== Installiere Cortex ===" && \
-	echo "" && \
-	echo "1. Installiere Binaries nach /usr/local/bin..." && \
+install-binaries: build ## Installiert Binaries nach /usr/local/bin
+	@echo "Installiere Binaries nach /usr/local/bin..." && \
 	if [ -w /usr/local/bin ]; then \
-		cp cortex-server cortex-cli /usr/local/bin/ && echo "   ✓ Binaries installiert"; \
+		cp cortex-server cortex-cli /usr/local/bin/ && echo "✓ Binaries installiert"; \
 	else \
-		sudo cp cortex-server cortex-cli /usr/local/bin/ && echo "   ✓ Binaries installiert (mit sudo)"; \
-	fi && \
-	echo "" && \
-	echo "2. Installiere systemd Service..." && \
-	mkdir -p ~/.config/systemd/user && \
-	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service && \
-	systemctl --user daemon-reload && \
-	echo "   ✓ Service installiert und Konfiguration neu geladen" && \
-	echo "" && \
-	echo "3. Kopiere Skills nach ~/.openclaw/workspace/skills..." && \
-	mkdir -p ~/.openclaw/workspace/skills && \
-	cp -R skills/cortex/ ~/.openclaw/workspace/skills && \
-	echo "   ✓ Skills kopiert" && \
-	echo "" && \
+		sudo cp cortex-server cortex-cli /usr/local/bin/ && echo "✓ Binaries installiert (mit sudo)"; \
+	fi
+
+install: install-binaries service-install copy-skill ## Vollständige Installation: Binaries, Service und Skills
+	@echo "" && \
 	echo "=== Installation abgeschlossen ===" && \
 	echo "" && \
 	echo "Nächste Schritte:" && \
@@ -91,8 +80,8 @@ benchmark-embeddings: build _benchmark-embeddings-args ## Führt Embedding-Bench
 service-install: build ## Installiert systemd User Service-Datei und lädt Konfiguration neu
 	@mkdir -p ~/.config/systemd/user && \
 	sed "s|%h|$$HOME|g" skills/cortex/cortex-server.service > ~/.config/systemd/user/cortex-server.service && \
-	systemctl --user daemon-reload && \
-	echo "✓ Service-Datei installiert und Konfiguration neu geladen"
+	$(MAKE) service-reload && \
+	echo "✓ Service-Datei installiert"
 
 service-reload: ## Lädt systemd User-Konfiguration neu
 	@systemctl --user daemon-reload && \
