@@ -177,6 +177,26 @@ func TestUnmarshalMetadataNull(t *testing.T) {
 	}
 }
 
+func TestSanitizeFilenameForHeader(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"app1", "app1"},
+		{"user\nid", "userid"},
+		{"a\"b", "ab"},
+		{"a\\b", "ab"},
+		{"a\rb", "ab"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		got := SanitizeFilenameForHeader(tt.in)
+		if got != tt.want {
+			t.Errorf("SanitizeFilenameForHeader(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestValidateBackupPath(t *testing.T) {
 	tests := []struct {
 		name    string

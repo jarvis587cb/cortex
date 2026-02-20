@@ -104,6 +104,7 @@ flowchart TB
 - **Behoben:** **Path-Traversal** bei Backup/Restore: Die Query-Parameter `path` wurden ungeprüft an `BackupDatabase` bzw. `CopyFile`/`FileExists` übergeben. Es gibt nun `helpers.ValidateBackupPath`; ungültige Pfade → 400. Tests: `TestValidateBackupPath`.
 - **Behoben:** **Tenant-Isolation:** `GET /agent-contexts/:id` lieferte jeden Agent-Context nur anhand der ID (ohne Tenant-Prüfung). Jetzt sind `appId` und `externalUserId` (Query) erforderlich; es wird `GetAgentContextByIDAndTenant` verwendet. `DELETE /webhooks/:id` löschte beliebige Webhooks; jetzt ist `appId` (Query) erforderlich, es wird nur das Webhook mit passendem `app_id` gelöscht (`GetWebhookByIDAndApp`).
 - **Behoben:** **CLI:** `context-get <id>` sendete keine Tenant-Parameter; die CLI hängt nun `?appId=...&externalUserId=...` an. `context-create` wertete nur HTTP 200 als Erfolg; die API liefert 201 Created – die CLI akzeptiert nun 200 und 201.
+- **Behoben:** **Export:** `Content-Disposition` setzte `appId` und `externalUserId` ungefiltert in den Dateinamen. Enthalten sie Anführungszeichen, Backslash oder Zeilenumbrüche, konnte der Header beschädigt werden oder Header-Injection ermöglichen. Es wird nun `helpers.SanitizeFilenameForHeader` verwendet (entfernt `"`, `\`, `\n`, `\r`). Test: `TestSanitizeFilenameForHeader`.
 - **Überprüft:** Tenant-Isolation bei Delete (Seeds, Bundles) ist korrekt; ID-Parsing und Pfad-Extraktion (z. B. `/seeds/123`) mit Tests; Race-Tests (`go test -race ./...`) laufen ohne Fehler.
 
 ---

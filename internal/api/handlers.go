@@ -735,7 +735,9 @@ func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"cortex-export-%s-%s-%s.json\"", appID, externalUserID, time.Now().Format("20060102-150405")))
+	safeAppID := helpers.SanitizeFilenameForHeader(appID)
+	safeUserID := helpers.SanitizeFilenameForHeader(externalUserID)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"cortex-export-%s-%s-%s.json\"", safeAppID, safeUserID, time.Now().Format("20060102-150405")))
 	helpers.WriteJSON(w, http.StatusOK, exportData)
 }
 

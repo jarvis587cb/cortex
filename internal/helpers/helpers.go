@@ -270,6 +270,21 @@ func UnmarshalEntityData(dataJSON string) map[string]any {
 	return data
 }
 
+// SanitizeFilenameForHeader removes characters that could break HTTP header values (e.g. Content-Disposition filename).
+// Removes double-quote, backslash, newline, carriage return.
+func SanitizeFilenameForHeader(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '"', '\\', '\n', '\r':
+			continue
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // ValidateBackupPath rejects paths that could cause path traversal (e.g. ".." or absolute paths).
 // Use for backup/restore path parameters.
 func ValidateBackupPath(path string) error {
