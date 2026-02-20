@@ -2,6 +2,20 @@
 
 Referenz: [OpenClaw Integration Guide](https://openclaw.vanarchain.com/guide-openclaw) (Vanar Neutron)
 
+## Prüfung gegen den OpenClaw-Guide (Stand: Abgleich mit guide-openclaw)
+
+| Guide-Abschnitt | Guide (Neutron) | Cortex | Status |
+|-----------------|-----------------|--------|--------|
+| **Installation** | `clawhub install vanar-neutron-memory` | `make build`, `make service-install`, Skill `skills/cortex/` | ✅ Lokaler Server + Skill |
+| **Testing** | `./scripts/neutron-memory.sh test` | `./cortex-cli health`; Hooks: `skills/cortex/test-hooks.sh` | ✅ Entspricht |
+| **Hooks Config** | `VANAR_AUTO_RECALL`, `VANAR_AUTO_CAPTURE` | `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` | ✅ Entspricht |
+| **Seeds: Save** | `neutron-memory.sh save "content" "tag"` | `cortex-cli store "content" [metadata]` | ✅ Entspricht |
+| **Seeds: Search** | `neutron-memory.sh search "query" limit threshold` | `cortex-cli query "query" limit threshold` | ✅ Entspricht |
+| **Agent Contexts** | context-create, context-list, context-get | `cortex-cli context-create/list/get` | ✅ Entspricht |
+| **API Endpoints** | POST /seeds, POST /seeds/query, agent-contexts | Alle implementiert (inkl. DELETE /seeds/:id, Stats) | ✅ Superset |
+
+Cortex deckt die im [OpenClaw Integration Guide](https://openclaw.vanarchain.com/guide-openclaw) beschriebenen Funktionen ab (Seeds, Agent Contexts, Hooks, Auto-Recall/Capture); Installation und Konfiguration weichen bewusst ab (lokal, kein API-Key).
+
 ## Übersicht
 
 | Aspekt | OpenClaw Guide (Neutron) | Cortex |
@@ -242,7 +256,7 @@ Cortex bietet Features, die im Neutron-Guide nicht erwähnt werden:
 
 **Cortex:**
 - Lokaler Server (Go-Binary)
-- Skill in `./skills/cortex/` (geplant)
+- Skill in `./skills/cortex/` (hooks.sh, SKILL.md)
 - Keine externen Abhängigkeiten
 
 ### 2. Credentials
@@ -352,5 +366,5 @@ const client = new CortexClient({
 1. ✅ Server läuft lokal
 2. ✅ CLI-Tool verfügbar
 3. ✅ API-Endpunkte implementiert
-4. ⏳ OpenClaw Skill-Integration (geplant)
-5. ⏳ Auto-Recall/Auto-Capture Hooks (geplant)
+4. ✅ OpenClaw Skill-Integration (skills/cortex/, hooks.sh)
+5. ✅ Auto-Recall/Auto-Capture Hooks (CORTEX_AUTO_RECALL, CORTEX_AUTO_CAPTURE)
