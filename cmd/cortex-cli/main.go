@@ -420,7 +420,7 @@ func cmdContextCreate(client *cliClient, args []string) error {
 	if err != nil {
 		return err
 	}
-	if code != http.StatusOK {
+	if code != http.StatusOK && code != http.StatusCreated {
 		return fmt.Errorf("Fehler beim Anlegen (HTTP %d): %s", code, string(data))
 	}
 	var res struct {
