@@ -109,7 +109,7 @@ Umgebungsvariablen:
   CORTEX_API_URL   - API Base URL (Standard: %s)
   CORTEX_APP_ID    - App-ID (Standard: %s)
   CORTEX_USER_ID   - User-ID (Standard: %s)
-  CORTEX_API_KEY   - Optional: API-Key für Auth (X-API-Key)
+  CORTEX_API_KEY   - Optional: API-Key für Auth (nur für Produktion; lokale Installation benötigt keinen)
 
 Flags (überschreiben Env):
   -url <url>    - API Base URL

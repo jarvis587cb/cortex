@@ -540,7 +540,7 @@ Der offizielle Guide beschreibt die Integration von Neutron in OpenClaw: ClawHub
 | Aspekt | OpenClaw-Guide (Neutron) | Cortex |
 |--------|---------------------------|--------|
 | **Installation** | `clawhub install vanar-neutron-memory` → Skill in `./skills/vanar-neutron-memory/` | Server + OpenClaw: ein Skill `skills/cortex/` (install.sh, setup.sh, hooks.sh) |
-| **Credentials** | Neutron: API-Key, Agent-ID, User-ID | Cortex: `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY` |
+| **Credentials** | Neutron: API-Key, Agent-ID, User-ID | Cortex: `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY` (nur für Produktion; lokale Installation benötigt keinen) |
 | **Test** | `./scripts/neutron-memory.sh test` | `./cortex-cli health` (siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md)) |
 
 ### Hooks (Auto-Recall / Auto-Capture)

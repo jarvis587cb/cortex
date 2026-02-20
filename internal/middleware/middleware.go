@@ -56,7 +56,7 @@ func MethodAllowed(handler http.HandlerFunc, methods ...string) http.HandlerFunc
 
 // AuthMiddleware enforces optional API key authentication.
 // If CORTEX_API_KEY is set, requests must send X-API-Key or Authorization: Bearer <key>.
-// If CORTEX_API_KEY is empty, all requests are allowed (local/dev mode).
+// If CORTEX_API_KEY is empty, all requests are allowed (local/dev mode - no API key required).
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	apiKey := os.Getenv("CORTEX_API_KEY")
 	if apiKey == "" {

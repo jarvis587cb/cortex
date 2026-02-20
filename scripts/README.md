@@ -21,13 +21,13 @@ Nach `make build`: alle Befehle ohne jq/curl.
 ./cortex-cli help
 ```
 
-**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`.
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY` (nur für Produktion; lokale Installation benötigt keinen).
 
 ### `cortex-memory.sh` – Script (Hooks: recall/capture)
 
 Für **Hooks** (Auto-Recall/Auto-Capture) z. B. mit OpenClaw: `skills/cortex/hooks.sh recall` / `capture` (ruft dieses Script auf). Eigenständig: `test`, `save`, `search`, `recall`, `capture`, `context-create`, `context-list`, `context-get`.
 
-**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY`; für Hooks: `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` (default: true).
+**Umgebungsvariablen:** `CORTEX_API_URL`, `CORTEX_APP_ID`, `CORTEX_USER_ID`; optional `CORTEX_API_KEY` (nur für Produktion; lokale Installation benötigt keinen); für Hooks: `CORTEX_AUTO_RECALL`, `CORTEX_AUTO_CAPTURE` (default: true).
 
 Siehe [skills/cortex/SKILL.md](../skills/cortex/SKILL.md).
 
