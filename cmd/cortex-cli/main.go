@@ -111,6 +111,14 @@ func main() {
 		err = cmdAnalytics(client, cmdArgs)
 	case "seeds-list":
 		err = cmdSeedsList(client, cmdArgs)
+	case "cleanup":
+		err = cmdCleanup(client, cmdArgs)
+	case "history":
+		err = cmdHistory(client, cmdArgs)
+	case "merge":
+		err = cmdMerge(client, cmdArgs)
+	case "find-similar":
+		err = cmdFindSimilar(client, cmdArgs)
 	case "help", "-h", "--help":
 		printHelp(os.Args[0])
 		os.Exit(0)
@@ -169,6 +177,10 @@ Befehle:
   restore <path>            - Datenbank aus Backup wiederherstellen
   analytics [days]          - Analytik abrufen (Standard: 30 Tage)
   seeds-list [limit] [offset] - Memories auflisten (Pagination)
+  cleanup [--dry-run]       - Cleanup manuell triggern
+  history <id>            - Memory Version History abrufen
+  merge <target> <source>  - Memories zusammenführen
+  find-similar [--threshold 0.9] [--limit 10] - Ähnliche Memories finden
   help                      - Zeigt diese Hilfe
 
 Umgebungsvariablen:
@@ -210,6 +222,10 @@ Beispiele:
   %[1]s restore /path/to/backup.db
   %[1]s analytics 7
   %[1]s seeds-list 20 0
+  %[1]s cleanup --dry-run
+  %[1]s history 1
+  %[1]s merge 1 2 3
+  %[1]s find-similar --threshold 0.9 --limit 10
 `, prog, defaultBaseURL, defaultAppID, defaultUserID)
 }
 
@@ -1313,5 +1329,129 @@ func cmdAPIKey(args []string) error {
 		return fmt.Errorf("Unbekannter Befehl: %s. Verwende: create, delete oder show", cmd)
 	}
 
+	return nil
+}
+
+// cmdCleanup - Trigger manual cleanup
+func cmdCleanup(client *cliClient, args []string) error {
+	dryRun := false
+	for _, arg := range args {
+		if arg == "--dry-run" || arg == "-d" {
+			dryRun = true
+		}
+	}
+
+	path := "/admin/cleanup"
+	if dryRun {
+		path += "?dryRun=true"
+	}
+
+	data, code, err := client.do(http.MethodPost, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK && code != http.StatusAccepted {
+		return fmt.Errorf("Fehler beim Cleanup (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+// cmdHistory - Get memory version history
+func cmdHistory(client *cliClient, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("Verwendung: history <memory-id>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil || id <= 0 {
+		return fmt.Errorf("id muss eine positive Ganzzahl sein")
+	}
+
+	path := fmt.Sprintf("/seeds/%d/history?appId=%s&externalUserId=%s", 
+		id, url.QueryEscape(client.appID), url.QueryEscape(client.userID))
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code == http.StatusNotFound {
+		return fmt.Errorf("Memory nicht gefunden (ID: %d)", id)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler beim Laden der History (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+// cmdMerge - Merge multiple memories into one
+func cmdMerge(client *cliClient, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("Verwendung: merge <target-id> <source-id> [source-id-2] ...")
+	}
+	
+	targetID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil || targetID <= 0 {
+		return fmt.Errorf("target-id muss eine positive Ganzzahl sein")
+	}
+
+	sourceIDs := make([]int64, 0)
+	for _, arg := range args[1:] {
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil || id <= 0 {
+			return fmt.Errorf("source-id muss eine positive Ganzzahl sein: %s", arg)
+		}
+		sourceIDs = append(sourceIDs, id)
+	}
+
+	body := map[string]interface{}{
+		"targetId":  targetID,
+		"sourceIds": sourceIDs,
+		"appId":        client.appID,
+		"externalUserId": client.userID,
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	data, code, err := client.do(http.MethodPost, "/seeds/merge", jsonBody)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK && code != http.StatusCreated {
+		return fmt.Errorf("Fehler beim Merge (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+// cmdFindSimilar - Find similar memory pairs
+func cmdFindSimilar(client *cliClient, args []string) error {
+	threshold := 0.9
+	limit := 10
+	var err error
+
+	for i, arg := range args {
+		if (arg == "--threshold" || arg == "-t") && i+1 < len(args) {
+			threshold, err = strconv.ParseFloat(args[i+1], 64)
+			if err != nil {
+				return fmt.Errorf("threshold muss eine Zahl sein")
+			}
+		}
+		if (arg == "--limit" || arg == "-l") && i+1 < len(args) {
+			limit, err = strconv.Atoi(args[i+1])
+			if err != nil {
+				return fmt.Errorf("limit muss eine Zahl sein")
+			}
+		}
+	}
+
+	path := fmt.Sprintf("/seeds/similar?appId=%s&externalUserId=%s&threshold=%f&limit=%d",
+		url.QueryEscape(client.appID), url.QueryEscape(client.userID), threshold, limit)
+	data, code, err := client.do(http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("Fehler (HTTP %d): %s", code, string(data))
+	}
+	fmt.Println(string(data))
 	return nil
 }

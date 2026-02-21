@@ -66,6 +66,69 @@ cortex-cli api-key delete [env_file]  # API-Key aus .env entfernen
 
 # Embeddings
 cortex-cli generate-embeddings [batchSize]  # Embeddings für Memories nachziehen (Standard: 10, Max: 100)
+
+# Cleanup (manuell)
+cortex-cli cleanup --dry-run    # Simulation ohne Änderungen
+cortex-cli cleanup             # Tatsächlich aufräumen
+```
+
+## ✨ Neue Features (v2)
+
+### Memory Expiration / TTL
+
+Memories können mit Ablaufzeit gespeichert werden:
+
+```bash
+# Memory mit TTL speichern (24h = 86400 Sekunden)
+cortex-cli store "Temporäre Notiz" '{"ttlSeconds":86400}'
+
+# Memory mit konkretem Datum
+cortex-cli store "Bis zum 1. März gültig" '{"expiresAt":"2026-03-01T00:00:00Z"}'
+```
+
+**Automatische Verwaltung:**
+- Nach Ablauf → Status = "archived"
+- Standard-Abfragen filtern nur "active" Memories
+- Mit `?includeArchived=true` auch archivierte sehen
+
+### Memory Merging
+
+Ähnliche Memories zusammenführen:
+
+```bash
+# Merge via API
+curl -X POST http://localhost:9123/seeds/merge \
+  -H "Content-Type: application/json" \
+  -d '{"targetId":1,"sourceIds":[2,3]}'
+
+# Ähnliche Memories finden (Similarity > 0.9)
+cortex-cli find-similar --threshold 0.9 --limit 10
+```
+
+### Version History
+
+Änderungen an Memories werden getrackt:
+
+```bash
+# History abrufen
+cortex-cli history <memory-id>
+
+# Alte Version wiederherstellen
+cortex-cli restore <memory-id> <version-number>
+```
+
+### Scheduled Cleanup
+
+Automatische Bereinigung (konfigurierbar):
+
+```bash
+# Umgebungsvariablen
+CORTEX_CLEANUP_INTERVAL=24h          # Alle 24h (leer = aus)
+CORTEX_CLEANUP_DELETE_ARCHIVED_AFTER=720h  # Archivierte nach 30 Tagen löschen
+CORTEX_CLEANUP_MERGE_SIMILAR=true    # Ähnliche mergen
+
+# Manuell triggern
+curl -X POST http://localhost:9123/admin/cleanup?dryRun=true
 ```
 
 **Hinweis:** Die API-Key-Funktion ist optional. Für lokale Installationen ist kein API-Key erforderlich. Die Funktion ist nützlich für Produktionsumgebungen oder wenn mehrere Clients auf denselben Server zugreifen.
@@ -315,13 +378,18 @@ CORTEX_AUTO_CAPTURE=false
 |---------|----------|--------------|
 | POST | /seeds | Memory speichern |
 | POST | /seeds/query | Semantische Suche |
+| GET | /seeds/:id | Memory abrufen |
+| PATCH | /seeds/:id | Memory aktualisieren (Version anlegen) |
 | DELETE | /seeds/:id | Memory löschen |
+| GET | /seeds/:id/history | Version History |
+| POST | /seeds/merge | Memories zusammenführen |
 | POST | /seeds/generate-embeddings | Embeddings nachziehen |
 | POST | /entities?entity=... | Fact hinzufügen |
 | GET | /entities?name=... | Entity abrufen |
 | POST | /relations | Relation anlegen |
 | GET | /relations?from=... | Relations abrufen |
 | GET | /stats | Übersicht |
+| POST | /admin/cleanup | Cleanup manuell triggern |
 
 ## Beispiele
 
