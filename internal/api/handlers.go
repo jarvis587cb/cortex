@@ -872,7 +872,8 @@ func (h *Handlers) HandleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exportData, err := h.store.ExportAll(appID, externalUserID)
+	includeArchived := r.URL.Query().Get("includeArchived") == "true" || r.URL.Query().Get("includeArchived") == "1"
+	exportData, err := h.store.ExportAll(appID, externalUserID, includeArchived)
 	if err != nil {
 		helpers.HandleInternalErrorSlog(w, "export error", "error", err, "appId", appID, "userId", externalUserID)
 		return

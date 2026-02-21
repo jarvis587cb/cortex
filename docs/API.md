@@ -52,9 +52,12 @@ Speichert ein neues Memory (Seed) und generiert automatisch ein Embedding.
     "source": "chat",
     "tags": ["preferences"]
   },
-  "bundleId": 1                        // Optional: Bundle-ID
+  "bundleId": 1,                       // Optional: Bundle-ID
+  "ttlSeconds": 86400,                 // Optional: Ablauf in Sekunden (z. B. 24h)
+  "expiresAt": "2026-03-01T00:00:00Z"  // Optional: explizites Ablaufdatum (ISO8601)
 }
 ```
+Memories mit abgelaufenem `expiresAt` werden beim periodischen Cleanup archiviert (siehe [POST /admin/cleanup](#post-admincleanup---cleanup-manuell-ausführen)).
 
 **Response (200 OK):**
 ```json
@@ -72,16 +75,17 @@ cortex-cli store "Der Benutzer mag Kaffee" '{"source":"chat"}'
 
 ### `GET /seeds` - Memories auflisten (Pagination)
 
-Gibt eine paginierte Liste von Memories für einen Tenant zurück (z. B. für das Dashboard). Embeddings werden nicht mitgeliefert.
+Gibt eine paginierte Liste von Memories für einen Tenant zurück (z. B. für das Dashboard). Nur **aktive** Memories (nicht archivierte); Embeddings werden nicht mitgeliefert.
 
 **Query-Parameter:**
 - `appId` (string, erforderlich)
 - `externalUserId` (string, erforderlich)
 - `limit` (int, optional) – Standard 50, Max 100
 - `offset` (int, optional) – Standard 0
+- `includeArchived` (boolean, optional) – Wenn `true`, werden auch archivierte Memories einbezogen
 
 **Response (200 OK):**
-JSON-Array von Memory-Objekten (id, content, type, metadata, created_at usw., ohne embedding).
+JSON-Array von Memory-Objekten (id, content, type, metadata, status, expires_at, created_at, updated_at usw., ohne embedding).
 
 **CLI:**
 ```bash
@@ -137,6 +141,88 @@ Führt semantische Suche durch (mit Embeddings) oder fällt auf Textsuche zurüc
 ```bash
 cortex-cli query "Was mag der Benutzer?" 5 0.5
 cortex-cli query "Theme" 10 0.5 "" '{"typ":"persönlich"}'
+```
+
+### `GET /seeds/:id` - Einzelnes Memory abrufen
+
+Liefert ein Memory anhand der ID (nur aktive, sofern nicht anders gefiltert).
+
+**Query-Parameter (erforderlich):**
+- `appId` (string)
+- `externalUserId` (string)
+
+**Response (200 OK):** Ein Memory-Objekt (ohne embedding).
+
+### `PATCH /seeds/:id` - Memory aktualisieren
+
+Aktualisiert ein Memory. Vor der Änderung wird eine Version in der History gespeichert.
+
+**Query-Parameter (erforderlich):**
+- `appId` (string)
+- `externalUserId` (string)
+
+**Request Body (alle Felder optional):**
+```json
+{
+  "content": "Aktualisierter Inhalt",
+  "metadata": { "source": "edit" },
+  "importance": 7,
+  "tags": "wichtig,aktualisiert"
+}
+```
+
+**Response (200 OK):** Das aktualisierte Memory-Objekt. Bei Content-Änderung wird das Embedding neu generiert.
+
+### `GET /seeds/:id/history` - Version History
+
+Listet die Änderungshistorie eines Memories (Versionen mit content, importance, changed_at, changed_by).
+
+**Query-Parameter (erforderlich):**
+- `appId` (string)
+- `externalUserId` (string)
+
+**Response (200 OK):**
+```json
+{
+  "versions": [
+    {
+      "id": 1,
+      "memory_id": 42,
+      "version": 2,
+      "content": "...",
+      "importance": 5,
+      "changed_at": "2026-02-20T10:00:00Z",
+      "changed_by": "api"
+    }
+  ]
+}
+```
+
+### `POST /seeds/merge` - Ähnliche Memories zusammenführen
+
+Führt die angegebenen Source-Memories in das Target-Memory zusammen (Content mit „ | “ verknüpft, Metadata/Tags zusammengeführt, Importance = max). Die Source-Memories werden archiviert und erhalten in der Metadata `merged_into: targetId`.
+
+**Query-Parameter (optional, Neutron-Style):**
+- `appId` (string)
+- `externalUserId` (string)
+
+**Request Body:**
+```json
+{
+  "appId": "myapp",
+  "externalUserId": "user123",
+  "targetId": 1,
+  "sourceIds": [2, 3]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "targetId": 1,
+  "archived": [2, 3],
+  "message": "Memories merged successfully"
+}
 ```
 
 ### `DELETE /seeds/:id` - Memory löschen
@@ -697,6 +783,9 @@ Exportiert alle Daten (Memories, Bundles, Webhooks) für einen Tenant als JSON.
 - `appId` (string)
 - `externalUserId` (string)
 
+**Query-Parameter (optional):**
+- `includeArchived` (boolean) – Wenn `true`, werden auch archivierte Memories exportiert (Standard: nur aktive)
+
 **Response (200 OK):**
 ```json
 {
@@ -713,7 +802,40 @@ Exportiert alle Daten (Memories, Bundles, Webhooks) für einen Tenant als JSON.
 cortex-cli export cortex-export.json
 # Ohne Dateiname: Ausgabe auf stdout
 cortex-cli export
+# Mit archivierten Memories:
+# GET /export?appId=...&externalUserId=...&includeArchived=true
 ```
+
+### `POST /admin/cleanup` - Cleanup manuell ausführen
+
+Führt einen einmaligen Cleanup-Lauf aus (TTL-Archivierung, optional Löschung alter Archiv-Einträge, optional Merge ähnlicher Memories, optional Archivierung nach niedriger Importance). Verhalten wird über Umgebungsvariablen gesteuert (siehe [Cleanup-Konfiguration](#cleanup-konfiguration)).
+
+**Query-Parameter (optional):**
+- `dryRun=true` – Keine Schreiboperationen, nur Zählwerte in der Response
+
+**Response (200 OK):**
+```json
+{
+  "archivedByExpiry": 3,
+  "deletedArchived": 0,
+  "mergedPairs": 1,
+  "archivedLowImport": 0,
+  "dryRun": false
+}
+```
+
+**Scheduled Cleanup:** Wenn die Umgebungsvariable `CORTEX_CLEANUP_INTERVAL` gesetzt ist (z. B. `24h`), führt der Server periodisch denselben Cleanup aus.
+
+#### Cleanup-Konfiguration (Umgebungsvariablen)
+
+- `CORTEX_CLEANUP_INTERVAL` – Intervall für periodischen Cleanup (z. B. `24h`); wenn gesetzt, startet der Ticker
+- `CORTEX_CLEANUP_ARCHIVE_EXPIRY` – `true` (Standard): Memories mit abgelaufenem `expires_at` archivieren
+- `CORTEX_CLEANUP_DELETE_ARCHIVED_AFTER` – Dauer, nach der archivierte Memories endgültig gelöscht werden (z. B. `720h` = 30 Tage)
+- `CORTEX_CLEANUP_MERGE_SIMILAR` – `true`: ähnliche Memories zusammenführen
+- `CORTEX_CLEANUP_MERGE_SIMILARITY` – Schwellenwert 0–1 (Standard: 0.95)
+- `CORTEX_CLEANUP_MERGE_MAX_PAIRS` – Max. Anzahl Merge-Paare pro Lauf (Standard: 50)
+- `CORTEX_CLEANUP_ARCHIVE_LOW_IMPORTANCE` – `true`: Memories mit niedriger Importance archivieren
+- `CORTEX_CLEANUP_LOW_IMPORTANCE_THRESHOLD` – Schwellenwert 1–10 (Standard: 2)
 
 ### `POST /import` - Daten importieren
 

@@ -19,12 +19,14 @@ type ExportData struct {
 	Webhooks   []models.Webhook `json:"webhooks"`
 }
 
-// ExportMemories exports all memories for a tenant
-func (s *CortexStore) ExportMemories(appID, externalUserID string) ([]models.Memory, error) {
+// ExportMemories exports memories for a tenant. If includeArchived is false, only active memories are returned.
+func (s *CortexStore) ExportMemories(appID, externalUserID string, includeArchived bool) ([]models.Memory, error) {
 	var memories []models.Memory
-	err := s.db.Where("app_id = ? AND external_user_id = ?", appID, externalUserID).
-		Order("created_at ASC").
-		Find(&memories).Error
+	q := s.db.Where("app_id = ? AND external_user_id = ?", appID, externalUserID)
+	if !includeArchived {
+		q = q.Where("status = ?", models.MemoryStatusActive)
+	}
+	err := q.Order("created_at ASC").Find(&memories).Error
 	return memories, err
 }
 
@@ -48,9 +50,9 @@ func (s *CortexStore) ExportWebhooks(appID string) ([]models.Webhook, error) {
 	return webhooks, err
 }
 
-// ExportAll exports all data for a tenant
-func (s *CortexStore) ExportAll(appID, externalUserID string) (*ExportData, error) {
-	memories, err := s.ExportMemories(appID, externalUserID)
+// ExportAll exports all data for a tenant. includeArchived: if true, exported memories include archived ones.
+func (s *CortexStore) ExportAll(appID, externalUserID string, includeArchived bool) (*ExportData, error) {
+	memories, err := s.ExportMemories(appID, externalUserID, includeArchived)
 	if err != nil {
 		return nil, fmt.Errorf("failed to export memories: %w", err)
 	}

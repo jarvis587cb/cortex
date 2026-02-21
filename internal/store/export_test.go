@@ -41,7 +41,7 @@ func TestExportImport(t *testing.T) {
 	store.CreateBundle(bundle)
 
 	// Export data
-	exportData, err := store.ExportAll(appID, userID)
+	exportData, err := store.ExportAll(appID, userID, false)
 	if err != nil {
 		t.Fatalf("ExportAll failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestExportImport(t *testing.T) {
 	}
 
 	// Verify imported data
-	importedMemories, _ := store2.ExportMemories(appID, userID)
+	importedMemories, _ := store2.ExportMemories(appID, userID, false)
 	if len(importedMemories) != 2 {
 		t.Errorf("expected 2 imported memories, got %d", len(importedMemories))
 	}
