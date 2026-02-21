@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"cortex/internal/api"
+	"cortex/internal/cleanup"
 	"cortex/internal/dashboard"
 	"cortex/internal/helpers"
 	"cortex/internal/middleware"
@@ -61,7 +64,8 @@ func main() {
 	})))
 	mux.HandleFunc("/seeds/query", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleQuerySeed, http.MethodPost))))
 	mux.HandleFunc("/seeds/generate-embeddings", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleGenerateEmbeddings, http.MethodPost))))
-	mux.HandleFunc("/seeds/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleDeleteSeed, http.MethodDelete))))
+	mux.HandleFunc("/seeds/merge", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleMergeSeeds, http.MethodPost))))
+	mux.HandleFunc("/seeds/", middleware.RateLimitMiddleware(middleware.AuthMiddleware(handlers.HandleSeedsByID)))
 
 	// Bundles API (with rate limiting)
 	// Register /bundles/ first to avoid routing conflicts
@@ -171,6 +175,17 @@ func main() {
 	// Dashboard (embedded SPA; in dev mode proxies to Vite)
 	mux.Handle("/dashboard", dashboard.Handler())
 	mux.Handle("/dashboard/", dashboard.Handler())
+
+	// Admin: manual cleanup (optional; same auth as rest)
+	mux.HandleFunc("/admin/cleanup", middleware.RateLimitMiddleware(middleware.AuthMiddleware(middleware.MethodAllowed(handlers.HandleCleanup, http.MethodPost))))
+
+	// Scheduled cleanup: only when CORTEX_CLEANUP_INTERVAL is set (e.g. 24h)
+	if intervalStr := os.Getenv("CORTEX_CLEANUP_INTERVAL"); intervalStr != "" {
+		if d, err := time.ParseDuration(intervalStr); err == nil && d > 0 {
+			go cleanup.StartCleanupTicker(context.Background(), cortexStore, d)
+			slog.Info("cleanup ticker started", "interval", d)
+		}
+	}
 
 	port := os.Getenv("CORTEX_PORT")
 	if port == "" {

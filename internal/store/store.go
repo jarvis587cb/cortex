@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -50,9 +51,12 @@ func NewCortexStore(dbPath string) (*CortexStore, error) {
 }
 
 func (s *CortexStore) migrate() error {
-	if err := s.db.AutoMigrate(&models.Memory{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{}, &models.AgentContext{}); err != nil {
+	if err := s.db.AutoMigrate(&models.Memory{}, &models.MemoryVersion{}, &models.Entity{}, &models.Relation{}, &models.Bundle{}, &models.Webhook{}, &models.AgentContext{}); err != nil {
 		return err
 	}
+
+	// Backfill status for existing memories (pre-TTL schema)
+	s.db.Exec("UPDATE memories SET status = ? WHERE status = '' OR status IS NULL", models.MemoryStatusActive)
 
 	// Composite Indizes für häufigste Queries
 	for _, q := range []string{
@@ -60,6 +64,8 @@ func (s *CortexStore) migrate() error {
 		"CREATE INDEX IF NOT EXISTS idx_memory_tenant_bundle ON memories(app_id, external_user_id, bundle_id)",
 		"CREATE INDEX IF NOT EXISTS idx_memory_created_at ON memories(created_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_memory_embedding ON memories(embedding) WHERE embedding != '' AND embedding IS NOT NULL",
+		"CREATE INDEX IF NOT EXISTS idx_memory_status ON memories(status)",
+		"CREATE INDEX IF NOT EXISTS idx_memory_expires_at ON memories(expires_at) WHERE expires_at IS NOT NULL",
 	} {
 		if err := s.db.Exec(q).Error; err != nil {
 			return err
@@ -120,9 +126,20 @@ func (s *CortexStore) applyOptionalFilters(dbQuery *gorm.DB, filters map[string]
 	return dbQuery
 }
 
+// memoryStatusFilter applies status filter unless includeArchived is true.
+func (s *CortexStore) memoryStatusFilter(dbQuery *gorm.DB, includeArchived bool) *gorm.DB {
+	if !includeArchived {
+		return dbQuery.Where("status = ?", models.MemoryStatusActive)
+	}
+	return dbQuery
+}
+
 // Memory Operations
 
 func (s *CortexStore) CreateMemory(mem *models.Memory) error {
+	if mem.Status == "" {
+		mem.Status = models.MemoryStatusActive
+	}
 	return s.db.Create(mem).Error
 }
 
@@ -147,7 +164,8 @@ func (s *CortexStore) SearchMemories(query, memType string, limit int) ([]models
 
 // ListMemoriesByTenant returns memories for a tenant with pagination (for dashboard/admin).
 // Does not populate Embedding in results; use for list views only.
-func (s *CortexStore) ListMemoriesByTenant(appID, externalUserID string, limit, offset int) ([]models.Memory, error) {
+// includeArchived: if false, only active memories are returned.
+func (s *CortexStore) ListMemoriesByTenant(appID, externalUserID string, limit, offset int, includeArchived bool) ([]models.Memory, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -158,8 +176,9 @@ func (s *CortexStore) ListMemoriesByTenant(appID, externalUserID string, limit, 
 		offset = 0
 	}
 	var memories []models.Memory
-	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
-		Order("created_at DESC").
+	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
+	dbQuery = s.memoryStatusFilter(dbQuery, includeArchived)
+	err := dbQuery.Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&memories).Error
@@ -173,9 +192,10 @@ func (s *CortexStore) ListMemoriesByTenant(appID, externalUserID string, limit, 
 	return memories, nil
 }
 
-func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any, includeArchived bool) ([]models.Memory, error) {
 	var memories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
+	dbQuery = s.memoryStatusFilter(dbQuery, includeArchived)
 
 	filters := map[string]interface{}{
 		"query":          query,
@@ -190,23 +210,24 @@ func (s *CortexStore) SearchMemoriesByTenantAndBundle(appID, externalUserID, que
 }
 
 // SearchMemoriesByTenantSemantic führt semantische Suche mit Embeddings durch
-func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any) ([]models.Memory, error) {
+func (s *CortexStore) SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, query string, bundleID *int64, limit int, seedIDs []int64, metadataFilter map[string]any, includeArchived bool) ([]models.Memory, error) {
 	// Generiere Embedding für Query
 	embeddingService := embeddings.GetEmbeddingService()
 	queryEmbedding, err := embeddingService.GenerateEmbedding(query, "text/plain")
 	if err != nil {
 		// Fallback zu Textsuche bei Fehler
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter, includeArchived)
 	}
 
 	if queryEmbedding == nil {
 		// Fallback zu Textsuche wenn kein Embedding generiert werden konnte
-		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter)
+		return s.SearchMemoriesByTenantAndBundle(appID, externalUserID, query, bundleID, limit, seedIDs, metadataFilter, includeArchived)
 	}
 
 	// Hole alle Memories für diesen Tenant (und optional Bundle, optional seedIDs, optional metadataFilter)
 	var allMemories []models.Memory
 	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID)
+	dbQuery = s.memoryStatusFilter(dbQuery, includeArchived)
 	if bundleID != nil {
 		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
 	}
@@ -318,11 +339,12 @@ func (s *CortexStore) BatchGenerateEmbeddings(batchSize int) error {
 	return nil
 }
 
-func (s *CortexStore) GetMemoryByIDAndTenant(id int64, appID, externalUserID string) (*models.Memory, error) {
+func (s *CortexStore) GetMemoryByIDAndTenant(id int64, appID, externalUserID string, includeArchived bool) (*models.Memory, error) {
 	var mem models.Memory
-	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
-		Where("id = ?", id).
-		First(&mem).Error
+	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Where("id = ?", id)
+	dbQuery = s.memoryStatusFilter(dbQuery, includeArchived)
+	err := dbQuery.First(&mem).Error
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +353,184 @@ func (s *CortexStore) GetMemoryByIDAndTenant(id int64, appID, externalUserID str
 
 func (s *CortexStore) DeleteMemory(mem *models.Memory) error {
 	return s.db.Delete(mem).Error
+}
+
+// UpdateMemory updates a memory (tenant must match). Before update, a snapshot is written to memory_versions.
+// changedBy can be "api", "merge", "import", etc.
+func (s *CortexStore) UpdateMemory(mem *models.Memory, changedBy string) error {
+	var existing models.Memory
+	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), mem.AppID, mem.ExternalUserID).
+		Where("id = ?", mem.ID).First(&existing).Error
+	if err != nil {
+		return err
+	}
+	// Next version number
+	var maxVersion int
+	s.db.Model(&models.MemoryVersion{}).Where("memory_id = ?", mem.ID).Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
+	nextVersion := maxVersion + 1
+	// Snapshot current state into memory_versions
+	ver := models.MemoryVersion{
+		MemoryID:  existing.ID,
+		Version:   nextVersion,
+		Content:   existing.Content,
+		Metadata:  existing.Metadata,
+		Importance: existing.Importance,
+		Tags:      existing.Tags,
+		Entity:    existing.Entity,
+		Type:      existing.Type,
+		ChangedBy: changedBy,
+	}
+	if err := s.db.Create(&ver).Error; err != nil {
+		return err
+	}
+	now := time.Now()
+	mem.UpdatedAt = &now
+	return s.db.Save(mem).Error
+}
+
+// ListMemoryVersions returns version history for a memory (tenant-scoped).
+func (s *CortexStore) ListMemoryVersions(memoryID int64, appID, externalUserID string) ([]models.MemoryVersion, error) {
+	var mem models.Memory
+	err := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Where("id = ?", memoryID).First(&mem).Error
+	if err != nil {
+		return nil, err
+	}
+	var versions []models.MemoryVersion
+	err = s.db.Where("memory_id = ?", memoryID).Order("version DESC").Find(&versions).Error
+	return versions, err
+}
+
+// ArchiveMemoriesByExpiry sets status to archived for all active memories where expires_at <= until.
+// Returns the number of rows updated.
+func (s *CortexStore) ArchiveMemoriesByExpiry(until time.Time) (int64, error) {
+	res := s.db.Model(&models.Memory{}).
+		Where("status = ? AND expires_at IS NOT NULL AND expires_at <= ?", models.MemoryStatusActive, until).
+		Update("status", models.MemoryStatusArchived)
+	return res.RowsAffected, res.Error
+}
+
+// DeleteArchivedOlderThan permanently deletes archived memories whose updated_at (or created_at) is before cutoff.
+// Uses created_at when updated_at is NULL. Returns the number of rows deleted.
+func (s *CortexStore) DeleteArchivedOlderThan(cutoff time.Time) (int64, error) {
+	// SQLite: delete where status=archived and (updated_at < cutoff or (updated_at is null and created_at < cutoff))
+	res := s.db.Where("status = ?", models.MemoryStatusArchived).
+		Where("(updated_at IS NOT NULL AND updated_at < ?) OR (updated_at IS NULL AND created_at < ?)", cutoff, cutoff).
+		Delete(&models.Memory{})
+	return res.RowsAffected, res.Error
+}
+
+// FindSimilarMemoryPairs returns pairs of memory IDs (keepID, mergeID) that have similarity >= minSimilarity.
+// Only active memories with embeddings are considered. Optionally scoped by bundleID.
+func (s *CortexStore) FindSimilarMemoryPairs(appID, externalUserID string, bundleID *int64, minSimilarity float64, limit int) ([][2]int64, error) {
+	var memories []models.Memory
+	dbQuery := s.applyTenantFilter(s.db.Model(&models.Memory{}), appID, externalUserID).
+		Where("status = ? AND embedding != '' AND embedding IS NOT NULL", models.MemoryStatusActive)
+	if bundleID != nil {
+		dbQuery = dbQuery.Where("bundle_id = ?", *bundleID)
+	}
+	if err := dbQuery.Find(&memories).Error; err != nil {
+		return nil, err
+	}
+	type pair struct{ a, b int64 }
+	seen := make(map[pair]struct{})
+	var result [][2]int64
+	for i := range memories {
+		for j := i + 1; j < len(memories); j++ {
+			if limit > 0 && len(result) >= limit {
+				return result, nil
+			}
+			embA, _ := embeddings.DecodeVector(memories[i].Embedding)
+			embB, _ := embeddings.DecodeVector(memories[j].Embedding)
+			if embA == nil || embB == nil {
+				continue
+			}
+			sim := embeddings.CosineSimilarity(embA, embB)
+			if sim < minSimilarity {
+				continue
+			}
+			// Keep lower ID first (deterministic: we merge into the older one)
+			idA, idB := memories[i].ID, memories[j].ID
+			if idA > idB {
+				idA, idB = idB, idA
+			}
+			p := pair{idA, idB}
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
+			result = append(result, [2]int64{idA, idB})
+		}
+	}
+	return result, nil
+}
+
+// MergeMemories merges the "merge" memory into the "keep" memory (both must exist and belong to tenant).
+// Content is concatenated with " | "; metadata/tags are merged; importance = max. Embedding is regenerated for keep.
+// The merged memory is archived and its metadata gets merged_into = keep.ID.
+func (s *CortexStore) MergeMemories(keepID, mergeID int64, appID, externalUserID string) error {
+	keep, err := s.GetMemoryByIDAndTenant(keepID, appID, externalUserID, false)
+	if err != nil {
+		return err
+	}
+	merge, err := s.GetMemoryByIDAndTenant(mergeID, appID, externalUserID, false)
+	if err != nil {
+		return err
+	}
+	// Merge content (concatenate with separator)
+	mergedContent := keep.Content
+	if merge.Content != "" {
+		if mergedContent != "" {
+			mergedContent += " | " + merge.Content
+		} else {
+			mergedContent = merge.Content
+		}
+	}
+	keep.Content = mergedContent
+	// Merge metadata: merge keys into keep's metadata
+	metaKeep := helpers.UnmarshalMetadata(keep.Metadata)
+	metaMerge := helpers.UnmarshalMetadata(merge.Metadata)
+	for k, v := range metaMerge {
+		if _, exists := metaKeep[k]; !exists {
+			metaKeep[k] = v
+		}
+	}
+	keep.Metadata = helpers.MarshalMetadata(metaKeep)
+	// Tags: combine
+	tagsKeep := strings.Split(keep.Tags, ",")
+	tagSet := make(map[string]struct{})
+	for _, t := range tagsKeep {
+		tagSet[strings.TrimSpace(t)] = struct{}{}
+	}
+	for _, t := range strings.Split(merge.Tags, ",") {
+		tagSet[strings.TrimSpace(t)] = struct{}{}
+	}
+	var tagList []string
+	for t := range tagSet {
+		if t != "" {
+			tagList = append(tagList, t)
+		}
+	}
+	keep.Tags = strings.Join(tagList, ",")
+	// Importance: max
+	if merge.Importance > keep.Importance {
+		keep.Importance = merge.Importance
+	}
+	if err := s.UpdateMemory(keep, "merge"); err != nil {
+		return err
+	}
+	if err := s.GenerateEmbeddingForMemory(keep); err != nil {
+		// non-fatal
+		_ = err
+	}
+	// Archive merged memory and set merged_into in metadata
+	mergeMeta := helpers.UnmarshalMetadata(merge.Metadata)
+	mergeMeta["merged_into"] = float64(keepID) // JSON numbers are float64
+	merge.Metadata = helpers.MarshalMetadata(mergeMeta)
+	merge.Status = models.MemoryStatusArchived
+	now := time.Now()
+	merge.UpdatedAt = &now
+	return s.db.Save(merge).Error
 }
 
 // Entity Operations

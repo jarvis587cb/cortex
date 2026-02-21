@@ -147,7 +147,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	store.CreateMemory(mem2)
 	store.CreateMemory(mem3)
 
-	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "likes", nil, 10, nil, nil)
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "likes", nil, 10, nil, nil, false)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenant failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestSearchMemoriesByTenant(t *testing.T) {
 	}
 
 	// Verify tenant isolation
-	memories2, _ := store.SearchMemoriesByTenantAndBundle("app1", "user2", "likes", nil, 10, nil, nil)
+	memories2, _ := store.SearchMemoriesByTenantAndBundle("app1", "user2", "likes", nil, 10, nil, nil, false)
 	if len(memories2) != 1 {
 		t.Errorf("expected 1 memory for user2, got %d", len(memories2))
 	}
@@ -174,7 +174,7 @@ func TestGetMemoryByID(t *testing.T) {
 	}
 	store.CreateMemory(mem)
 
-	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, mem.AppID, mem.ExternalUserID)
+	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, mem.AppID, mem.ExternalUserID, false)
 	if err != nil {
 		t.Fatalf("GetMemoryByID failed: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestGetMemoryByIDAndTenant(t *testing.T) {
 	}
 	store.CreateMemory(mem)
 
-	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1")
+	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1", false)
 	if err != nil {
 		t.Fatalf("GetMemoryByIDAndTenant failed: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestGetMemoryByIDAndTenant(t *testing.T) {
 	}
 
 	// Test tenant isolation - should not find memory with wrong tenant
-	_, err = store.GetMemoryByIDAndTenant(mem.ID, "app1", "user2")
+	_, err = store.GetMemoryByIDAndTenant(mem.ID, "app1", "user2", false)
 	if err == nil {
 		t.Error("expected error when querying with wrong tenant")
 	}
@@ -230,7 +230,7 @@ func TestDeleteMemory(t *testing.T) {
 	}
 
 	// Verify deletion
-	_, err = store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1")
+	_, err = store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1", false)
 	if err == nil {
 		t.Error("memory should be deleted")
 	}
@@ -449,7 +449,7 @@ func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
 	store.CreateMemory(mem3)
 
 	// Search without bundle filter
-	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "preference", nil, 10, nil, nil)
+	memories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "preference", nil, 10, nil, nil, false)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantAndBundle failed: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestSearchMemoriesByTenantAndBundle(t *testing.T) {
 	}
 
 	// Search with bundle filter
-	bundleMemories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil, nil)
+	bundleMemories, err := store.SearchMemoriesByTenantAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil, nil, false)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantAndBundle with bundle failed: %v", err)
 	}
@@ -506,7 +506,7 @@ func TestGenerateEmbeddingForMemory(t *testing.T) {
 	}
 
 	// Verify memory was saved with embedding
-	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1")
+	retrieved, err := store.GetMemoryByIDAndTenant(mem.ID, "app1", "user1", false)
 	if err != nil {
 		t.Fatalf("GetMemoryByIDAndTenant failed: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestSearchMemoriesByTenantSemanticAndBundle(t *testing.T) {
 	store.GenerateEmbeddingForMemory(mem3)
 
 	// Test semantic search
-	memories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee drinks", nil, 10, nil, nil)
+	memories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee drinks", nil, 10, nil, nil, false)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantSemanticAndBundle failed: %v", err)
 	}
@@ -589,7 +589,7 @@ func TestSearchMemoriesByTenantSemanticAndBundle(t *testing.T) {
 	mem1.BundleID = &bundle.ID
 	store.db.Save(mem1)
 
-	bundleMemories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil, nil)
+	bundleMemories, err := store.SearchMemoriesByTenantSemanticAndBundle("app1", "user1", "coffee", &bundle.ID, 10, nil, nil, false)
 	if err != nil {
 		t.Fatalf("SearchMemoriesByTenantSemanticAndBundle with bundle failed: %v", err)
 	}

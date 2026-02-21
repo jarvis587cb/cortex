@@ -8,6 +8,12 @@ import (
 
 // Database Models
 
+// MemoryStatus is the lifecycle status of a memory (active or archived).
+const (
+	MemoryStatusActive   = "active"
+	MemoryStatusArchived = "archived"
+)
+
 type Memory struct {
 	ID             int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	Type           string         `gorm:"not null;default:'semantic'" json:"type"`
@@ -22,7 +28,25 @@ type Memory struct {
 	MetadataMap    map[string]any `gorm:"-" json:"metadata,omitempty"`
 	Embedding      string         `gorm:"type:text" json:"-"` // JSON-encoded []float32
 	ContentType    string         `gorm:"column:content_type;default:'text/plain'" json:"content_type,omitempty"`
+	Status         string         `gorm:"not null;default:'active';index" json:"status,omitempty"`   // active, archived
+	ExpiresAt      *time.Time     `gorm:"column:expires_at;index" json:"expires_at,omitempty"`     // optional TTL
 	CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt      *time.Time     `gorm:"column:updated_at" json:"updated_at,omitempty"`
+}
+
+// MemoryVersion stores a snapshot of a memory for version history.
+type MemoryVersion struct {
+	ID             int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	MemoryID       int64     `gorm:"column:memory_id;not null;index" json:"memory_id"`
+	Version        int       `gorm:"not null" json:"version"`
+	Content        string    `gorm:"type:text;not null" json:"content"`
+	Metadata       string    `gorm:"type:text" json:"-"`
+	Importance     int       `gorm:"not null" json:"importance"`
+	Tags           string    `gorm:"type:text" json:"tags,omitempty"`
+	Entity         string    `gorm:"type:text" json:"entity,omitempty"`
+	Type           string    `gorm:"type:text" json:"type,omitempty"`
+	ChangedAt      time.Time `gorm:"column:changed_at;not null;default:CURRENT_TIMESTAMP" json:"changed_at"`
+	ChangedBy      string    `gorm:"column:changed_by" json:"changed_by,omitempty"` // e.g. "api", "merge", "import"
 }
 
 // NewMemoryFromRememberRequest creates a Memory from RememberRequest
@@ -45,7 +69,7 @@ func NewMemoryFromRememberRequest(req *RememberRequest) *Memory {
 
 // NewMemoryFromStoreSeedRequest creates a Memory from StoreSeedRequest
 func NewMemoryFromStoreSeedRequest(req *StoreSeedRequest, appID, externalUserID string) *Memory {
-	return &Memory{
+	mem := &Memory{
 		Type:           "semantic",
 		Content:        req.Content,
 		AppID:          appID,
@@ -53,7 +77,15 @@ func NewMemoryFromStoreSeedRequest(req *StoreSeedRequest, appID, externalUserID 
 		BundleID:       req.BundleID,
 		Metadata:       helpers.MarshalMetadata(req.Metadata),
 		Importance:     5,
+		Status:         MemoryStatusActive,
 	}
+	if req.ExpiresAt != nil {
+		mem.ExpiresAt = req.ExpiresAt
+	} else if req.TTLSeconds != nil && *req.TTLSeconds > 0 {
+		exp := time.Now().Add(time.Duration(*req.TTLSeconds) * time.Second)
+		mem.ExpiresAt = &exp
+	}
+	return mem
 }
 
 type Entity struct {
@@ -153,9 +185,11 @@ func (r *TenantRequest) GetExternalUserID() string { return r.ExternalUserID }
 
 type StoreSeedRequest struct {
 	TenantRequest
-	Content  string         `json:"content"`
-	Metadata map[string]any `json:"metadata,omitempty"`
-	BundleID *int64         `json:"bundleId,omitempty"`
+	Content     string         `json:"content"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	BundleID    *int64         `json:"bundleId,omitempty"`
+	TTLSeconds  *int           `json:"ttlSeconds,omitempty"`  // optional: set ExpiresAt = now + ttlSeconds
+	ExpiresAt   *time.Time     `json:"expiresAt,omitempty"`   // optional: explicit expiry (ISO8601)
 }
 
 type StoreSeedResponse struct {

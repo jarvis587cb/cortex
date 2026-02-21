@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"cortex/internal/cleanup"
 	"cortex/internal/embeddings"
 	"cortex/internal/helpers"
 	"cortex/internal/models"
@@ -353,7 +354,7 @@ func (h *Handlers) HandleListSeeds(w http.ResponseWriter, r *http.Request) {
 			offset = o
 		}
 	}
-	memories, err := h.store.ListMemoriesByTenant(appID, externalUserID, limit, offset)
+	memories, err := h.store.ListMemoriesByTenant(appID, externalUserID, limit, offset, false)
 	if err != nil {
 		helpers.HandleInternalErrorSlog(w, "list seeds error", "error", err, "appId", appID, "userId", externalUserID)
 		return
@@ -399,10 +400,10 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Versuche semantische Suche, fallback zu Textsuche (bei Fehler oder 0 Treffern)
-	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
+	memories, err := h.store.SearchMemoriesByTenantSemanticAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter, false)
 	if err != nil || len(memories) == 0 {
 		// Fallback zu Textsuche (z. B. wenn noch keine Embeddings vorhanden oder semantisch nichts gefunden)
-		textMemories, textErr := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
+		textMemories, textErr := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter, false)
 		if textErr != nil {
 			if err != nil {
 				helpers.HandleInternalErrorSlog(w, "query seed error", "error", err, "appId", appID, "userId", externalUserID, "query", req.Query)
@@ -463,7 +464,7 @@ func (h *Handlers) HandleQuerySeed(w http.ResponseWriter, r *http.Request) {
 
 	// Wenn nach Threshold 0 Treffer: Textsuche ergänzen (z. B. "oat milk" findet "oat milk lattes")
 	if len(results) == 0 && req.Query != "" {
-		textMemories, _ := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter)
+		textMemories, _ := h.store.SearchMemoriesByTenantAndBundle(appID, externalUserID, req.Query, req.BundleID, limit, seedIDs, metadataFilter, false)
 		for _, mem := range textMemories {
 			metadata := helpers.UnmarshalMetadata(mem.Metadata)
 			sim := helpers.DefaultSimilarity
@@ -505,24 +506,104 @@ func (h *Handlers) HandleGenerateEmbeddings(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
-	id, ok := helpers.ExtractAndParseID(w, r.URL.Path, "/seeds/")
+// HandleSeedsByID routes GET /seeds/:id, GET /seeds/:id/history, PATCH /seeds/:id, DELETE /seeds/:id
+func (h *Handlers) HandleSeedsByID(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	isHistory := strings.HasSuffix(path, "/history")
+	if isHistory {
+		path = strings.TrimSuffix(path, "/history")
+	}
+	id, ok := helpers.ExtractAndParseID(w, path, "/seeds/")
 	if !ok {
 		return
 	}
-
 	appID, externalUserID := helpers.ExtractTenantParams(r, nil)
-
-	fields := map[string]string{
-		"appId":          appID,
-		"externalUserId": externalUserID,
-	}
+	fields := map[string]string{"appId": appID, "externalUserId": externalUserID}
 	if field, ok := helpers.ValidateRequired(fields); !ok {
 		http.Error(w, "missing required query parameter: "+field, http.StatusBadRequest)
 		return
 	}
+	if isHistory {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.HandleSeedHistory(w, r, id, appID, externalUserID)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		h.HandleGetSeed(w, r, id, appID, externalUserID)
+	case http.MethodPatch:
+		h.HandleUpdateSeed(w, r, id, appID, externalUserID)
+	case http.MethodDelete:
+		h.HandleDeleteSeed(w, r, id, appID, externalUserID)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
 
-	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID)
+func (h *Handlers) HandleGetSeed(w http.ResponseWriter, r *http.Request, id int64, appID, externalUserID string) {
+	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID, false)
+	if h.handleStoreOperationWithNotFound(w, err, "Memory", "get seed", "id", id, "appId", appID, "userId", externalUserID) {
+		return
+	}
+	mem.Embedding = ""
+	h.mapMetadataToMemories([]models.Memory{*mem})
+	helpers.WriteJSON(w, http.StatusOK, mem)
+}
+
+type UpdateSeedRequest struct {
+	Content    *string         `json:"content,omitempty"`
+	Metadata   map[string]any  `json:"metadata,omitempty"`
+	Importance *int            `json:"importance,omitempty"`
+	Tags       *string         `json:"tags,omitempty"`
+}
+
+func (h *Handlers) HandleUpdateSeed(w http.ResponseWriter, r *http.Request, id int64, appID, externalUserID string) {
+	var req UpdateSeedRequest
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
+		return
+	}
+	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID, false)
+	if h.handleStoreOperationWithNotFound(w, err, "Memory", "update seed", "id", id, "appId", appID, "userId", externalUserID) {
+		return
+	}
+	if req.Content != nil {
+		mem.Content = *req.Content
+	}
+	if req.Metadata != nil {
+		mem.Metadata = helpers.MarshalMetadata(req.Metadata)
+	}
+	if req.Importance != nil {
+		mem.Importance = *req.Importance
+	}
+	if req.Tags != nil {
+		mem.Tags = *req.Tags
+	}
+	if err := h.store.UpdateMemory(mem, "api"); err != nil {
+		helpers.HandleInternalErrorSlog(w, "update seed error", "error", err, "id", id)
+		return
+	}
+	if req.Content != nil {
+		if err := h.store.GenerateEmbeddingForMemory(mem); err != nil {
+			slog.Warn("embedding on update failed", "error", err, "memoryId", mem.ID)
+		}
+	}
+	helpers.WriteJSON(w, http.StatusOK, mem)
+}
+
+func (h *Handlers) HandleSeedHistory(w http.ResponseWriter, r *http.Request, id int64, appID, externalUserID string) {
+	versions, err := h.store.ListMemoryVersions(id, appID, externalUserID)
+	if err != nil {
+		helpers.HandleInternalErrorSlog(w, "seed history error", "error", err, "id", id)
+		return
+	}
+	helpers.WriteJSON(w, http.StatusOK, map[string]any{"versions": versions})
+}
+
+func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request, id int64, appID, externalUserID string) {
+	mem, err := h.store.GetMemoryByIDAndTenant(id, appID, externalUserID, false)
 	if h.handleStoreOperationWithNotFound(w, err, "Memory", "delete seed", "id", id, "appId", appID, "userId", externalUserID) {
 		return
 	}
@@ -536,6 +617,67 @@ func (h *Handlers) HandleDeleteSeed(w http.ResponseWriter, r *http.Request) {
 	go h.triggerWebhook(webhooks.EventMemoryDeleted, h.buildMemoryWebhookPayload(mem, appID, externalUserID, webhooks.EventMemoryDeleted))
 
 	helpers.WriteJSON(w, http.StatusOK, helpers.NewSuccessResponse(mem.ID, "Memory deleted successfully"))
+}
+
+// MergeSeedsRequest is the body for POST /seeds/merge
+type MergeSeedsRequest struct {
+	models.TenantRequest
+	TargetID  int64   `json:"targetId"`  // memory to keep
+	SourceIDs []int64 `json:"sourceIds"` // memories to merge into target (then archived)
+}
+
+func (h *Handlers) HandleMergeSeeds(w http.ResponseWriter, r *http.Request) {
+	var req MergeSeedsRequest
+	if !helpers.ParseJSONBodyOrError(w, r, &req) {
+		return
+	}
+	appID, externalUserID, ok := helpers.ValidateTenantParamsWithFields(w, r, &req, map[string]string{}, false)
+	if !ok {
+		return
+	}
+	if req.TargetID == 0 || len(req.SourceIDs) == 0 {
+		http.Error(w, "targetId and sourceIds (non-empty) are required", http.StatusBadRequest)
+		return
+	}
+	for _, srcID := range req.SourceIDs {
+		if srcID == req.TargetID {
+			http.Error(w, "sourceIds must not contain targetId", http.StatusBadRequest)
+			return
+		}
+	}
+	merged := make([]int64, 0, len(req.SourceIDs))
+	for _, srcID := range req.SourceIDs {
+		if err := h.store.MergeMemories(req.TargetID, srcID, appID, externalUserID); err != nil {
+			helpers.HandleInternalErrorSlog(w, "merge seeds error", "error", err, "targetId", req.TargetID, "sourceId", srcID)
+			return
+		}
+		merged = append(merged, srcID)
+	}
+	helpers.WriteJSON(w, http.StatusOK, map[string]any{
+		"targetId": req.TargetID,
+		"archived": merged,
+		"message":  "Memories merged successfully",
+	})
+}
+
+// HandleCleanup runs one cleanup pass (POST /admin/cleanup). Query: dryRun=true for no writes.
+func (h *Handlers) HandleCleanup(w http.ResponseWriter, r *http.Request) {
+	cfg := cleanup.ConfigFromEnv()
+	if r.URL.Query().Get("dryRun") == "true" || r.URL.Query().Get("dryRun") == "1" {
+		cfg.DryRun = true
+	}
+	stats, err := cleanup.RunCleanup(r.Context(), h.store, cfg)
+	if err != nil {
+		helpers.HandleInternalErrorSlog(w, "cleanup error", "error", err)
+		return
+	}
+	helpers.WriteJSON(w, http.StatusOK, map[string]any{
+		"archivedByExpiry":   stats.ArchivedByExpiry,
+		"deletedArchived":   stats.DeletedArchived,
+		"mergedPairs":       stats.MergedPairs,
+		"archivedLowImport": stats.ArchivedLowImport,
+		"dryRun":            cfg.DryRun,
+	})
 }
 
 // Bundle API Handlers
